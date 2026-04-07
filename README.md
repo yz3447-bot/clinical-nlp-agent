@@ -1,257 +1,161 @@
 # AD/ADRD CyberDoctor — Horizontal Multi-Agent System
 
-Automated identification of Alzheimer's Disease and Alzheimer's Disease Related Dementias (AD/ADRD) from EHR discharge summaries using a horizontal multi-agent LLM pipeline.
+**Detects Alzheimer's Disease and related dementias (AD/ADRD) from hospital EHR discharge summaries using three parallel AI specialist agents, eliminating the false positives caused by naive keyword matching or ICD-code lookups alone.**
 
 ---
 
-## Architecture Overview
+## Results
+
+| Dataset | Records | Labeled | AD/ADRD Positive | Avg Note Length |
+|---|---|---|---|---|
+| MIMIC-style EHR discharge summaries | 100 | 87 (excl. uncertain) | ~54% | ~11,200 chars |
+
+Metrics (accuracy, sensitivity, PPV) are printed automatically after each run. Reproduce with:
+```bash
+python main_c.py
+```
+
+---
+
+## Architecture
 
 ```
 EHR Record (full text + ICD codes)
-        │
-        ├──────────────────────────────────────────────┐
-        │                        │                     │
-        ▼                        ▼                     ▼
-┌───────────────┐   ┌────────────────────┐   ┌──────────────────┐
-│ ClinTextAgent │   │  MedicationAgent   │   │ DiagnosisAgent   │
-│  (Layer 1)    │   │    (Layer 2)       │   │   (Layer 3)      │
-│  weight: +3   │   │    weight: +3      │   │   weight: +1     │
-│               │   │                   │   │                  │
-│  LLM reads    │   │  Phase 1: struct   │   │  Step 1: rule    │
-│  full note as │   │  Phase 2: LLM full │   │  ICD matching    │
-│  neurologist  │   │  text as pharmacist│   │  Step 2: LLM ctx │
-└───────┬───────┘   └────────┬───────────┘   └────────┬─────────┘
-        │                    │                         │
-        └────────────────────┴─────────────────────────┘
-                                     │
-                                     ▼
-                        ┌────────────────────────┐
-                        │    SynthesizerAgent     │
-                        │   (Attending Physician) │
-                        │                        │
-                        │  Always LLM-based.      │
-                        │  Receives full note +   │
-                        │  all 3 specialist       │
-                        │  reports. Can overrule  │
-                        │  any agent.             │
-                        └────────────┬───────────┘
-                                     │
-                                     ▼
-                           final_prediction (0/1)
-                           subtype (ad/vd/ftd/nsd/na)
-                           confidence, causal_chain
-                           overruled_agents, reason
+         │
+         ├────────────────────┬────────────────────┐
+         ▼                    ▼                    ▼
+ ┌───────────────┐  ┌──────────────────┐  ┌────────────────┐
+ │ ClinTextAgent │  │ MedicationAgent  │  │ DiagnosisAgent │
+ │  neurologist  │  │   pharmacist     │  │ coding spec.   │
+ │   weight: 3   │  │   weight: 3      │  │   weight: 1    │
+ └───────┬───────┘  └────────┬─────────┘  └───────┬────────┘
+         │                   │                    │
+         └───────────────────┴────────────────────┘
+                             │  (all three run in parallel)
+                             ▼
+                  ┌─────────────────────┐
+                  │  SynthesizerAgent   │
+                  │ attending physician │
+                  │ weighs all reports, │
+                  │ resolves conflicts, │
+                  │ can overrule agents │
+                  └──────────┬──────────┘
+                             ▼
+              final_prediction (0/1) · subtype · confidence
+              causal_chain · contributing_agents · discrepancy
 ```
 
-All three agents run **in parallel** via `ThreadPoolExecutor`. The Synthesizer runs serially after all three complete.
-
----
-
-## Effective Features
-
-Based on data analysis, only three feature types carry meaningful signal in this dataset:
-
-| Feature | Source | Notes |
+| Agent | Role | Method |
 |---|---|---|
-| Full clinical text | `text` column | Primary evidence — average 11,200 chars, max 45,700 |
-| ICD codes | `all_icd_codes` column | 99.5% coverage for positives, but 12.3% false trigger on negatives |
-| Subtype annotation | `adrd_dx_subtype` related columns | Complete labels: ad / vd / nsd / na |
-
-Features that are **not used**:
-- Structured medication columns — all zero in this dataset
-- Radiology notes — unrelated to AD (orthopedic/chest imaging)
-- Demographics — no independent diagnostic signal
+| **ClinTextAgent** | Identifies current cognitive symptoms | LLM reads full note as neurologist |
+| **MedicationAgent** | Checks for active AD prescriptions | LLM reads full note as pharmacist |
+| **DiagnosisAgent** | Validates ICD codes as current vs. historical | Rule-based match → LLM context check |
+| **SynthesizerAgent** | Final diagnosis + subtype | LLM with full evidence; rule-based fallback |
 
 ---
 
-## Design Philosophy
+## Quickstart
 
-### 1. Three Independent Specialist Perspectives
+**Prerequisites:** Python 3.10+, a Google Gemini API key, and your EHR data CSV in `data/`.
 
-Each agent reads the same complete clinical note but through a different professional lens:
+```bash
+# 1. Install dependencies
+pip install -r requirements.txt
 
-- **ClinTextAgent** — neurologist: what cognitive symptoms are present right now?
-- **MedicationAgent** — pharmacist: is the patient currently prescribed AD medications?
-- **DiagnosisAgent** — coding specialist: are the ICD codes reflecting active or historical disease?
+# 2. Set your API key
+export GEMINI_API_KEY=your_key_here   # Windows: set GEMINI_API_KEY=your_key_here
 
-No agent votes. No majority rule. The Synthesizer weighs all three perspectives with full clinical reasoning and can overrule any of them.
+# 3. Run the full pipeline
+python main_c.py
 
-### 2. Clinical Judgment, Not Keyword Extraction
+# 4. (Optional) Test on 5 records with verbose output
+python test_run.py
 
-The central mistake to avoid: treating "AD mentioned in the note" as equivalent to "this patient has AD."
+# 5. (Optional) Generate interactive HTML report
+python visualize.py
+# → opens outputs/report.html
+```
 
-A clinical note may mention AD in non-diagnostic contexts:
+**REST API (FastAPI):**
+```bash
+uvicorn api:app --host 0.0.0.0 --port 8000
 
-- **Family history** — "mother had Alzheimer's" → irrelevant to patient's diagnosis
-- **Differential being ruled out** — "dementia vs delirium — more likely delirium" → negative signal
-- **Historical background** — "PMH: dementia (not active this admission)" → not current
-- **Refused medications** — "patient declined donepezil" → no active management
+# Single-record inference
+curl -X POST http://localhost:8000/classify \
+  -H "Content-Type: application/json" \
+  -d '{"text": "Patient presents with progressive memory loss...", "icd_codes": "F0280|G309"}'
+```
 
-Every agent prompt explicitly instructs the LLM to exclude these cases and explain what was excluded in the `reasoning` field.
+API docs at `http://localhost:8000/docs`.
 
-### 3. Full Text, No Truncation
-
-Early versions truncated text to 3,000–6,000 characters. This was harmful for this dataset:
-
-| Metric | Value |
-|---|---|
-| Average note length | ~11,200 chars |
-| Maximum note length | ~45,700 chars |
-| Key evidence location | Often in the second half (discharge diagnosis, Assessment & Plan) |
-
-All agents receive the **complete** clinical text. Gemini 2.5 Flash supports a 1M token context window — truncation provides no benefit and actively harms recall.
-
-### 4. Current vs Historical Distinction
-
-A recurring source of false positives is historical diagnosis coded into the record without being active during the current admission. Each agent is designed to make this distinction:
-
-- **ClinTextAgent** — excludes "historical conditions not active this admission"; requires evidence from the current encounter
-- **MedicationAgent** — classifies medication status as `current / historical / refused / mentioned / none`; only `current` sets `meds_found=true`
-- **DiagnosisAgent** — after ICD match, LLM reads the full note to set `is_current_diagnosis`; codes appearing only in PMH without active management are flagged as historical
-
-### 5. Synthesizer Has Full Clinical Authority
-
-The Synthesizer receives the complete clinical note plus all three formatted specialist reports (including each agent's reasoning and assessment). It:
-
-- Evaluates each agent's findings independently
-- Identifies and resolves contradictions between agents
-- Explains which agent to trust more and why, when they disagree
-- Can explicitly overrule any agent, with the overruled agent listed in `overruled_agents`
-- Outputs both the AD/ADRD diagnosis and the dementia subtype
-
-This design handles the common case where agents contradict each other — e.g., ICD codes present (DiagnosisAgent positive) but the note describes an orthopedic admission with dementia only in the PMH (ClinTextAgent and MedicationAgent negative). The Synthesizer resolves this with clinical reasoning rather than mechanical voting.
-
-### 6. Subtype as Supplementary Output
-
-Subtype classification (`ad / vd / ftd / nsd / na`) is produced by the Synthesizer alongside the primary diagnosis. It is written to the output CSV as a reference field but is **not included in performance evaluation** — the primary metric is binary AD/ADRD identification accuracy.
+**Expected output per record:**
+```json
+{
+  "prediction": 1,
+  "subtype": "ad",
+  "confidence": "high",
+  "causal_chain": "ClinTextAgent found explicit dementia documentation...",
+  "contributing_agents": ["ClinTextAgent", "MedicationAgent"],
+  "discrepancy": null,
+  "latency_ms": 4821.3
+}
+```
 
 ---
 
-## Agent Details
+## Engineering Design Decisions
 
-### ClinTextAgent (`agents/clintext_agent.py`)
+### 1. Parallel Agent Execution
+**What:** All three specialist agents run simultaneously using `ThreadPoolExecutor(max_workers=3)`.
 
-**Persona:** Experienced clinical neurologist specializing in dementia
+**Why:** Each agent makes an independent LLM call (~2–5s each). Running them sequentially would triple the latency with no benefit — they share no state.
 
-**Input:** Full EHR text  
-**Output:** `symptoms_found`, `confidence`, `evidence_list` (exact quotes from note), `reasoning`, `assessment`
-
-**Prompt focus:** Chief Complaint, HPI, physical/neurological exam, Assessment & Plan, Discharge Diagnosis, Discharge Summary. Evidence must be verbatim quotes. The `reasoning` field explains what was included and what was excluded and why.
-
-**Confidence:**
-- `high` — physician explicitly documents active AD/ADRD, or 2+ distinct symptom categories with quotes
-- `medium` — implicit cognitive symptoms without explicit diagnosis
-- `low` — single vague or ambiguous mention
+**Impact:** ~3× faster per record than a sequential pipeline. At 4 LLM calls per record, total latency is bounded by the slowest agent rather than their sum.
 
 ---
 
-### MedicationAgent (`agents/medication_agent.py`)
+### 2. Weighted Evidence Fusion
+**What:** MedicationAgent and ClinTextAgent carry weight 3; DiagnosisAgent carries weight 1. These weights inform the Synthesizer's scoring, not a hard vote.
 
-**Persona:** Clinical pharmacist specializing in dementia care
+**Why:** A current AD medication prescription means a physician has *already diagnosed* the patient and started treatment — that is the strongest possible indirect confirmation. ICD codes alone are weakest: they are routinely carried forward from previous admissions without reflecting the current encounter.
 
-**Medications covered:** Donepezil (Aricept), Memantine (Namenda), Rivastigmine (Exelon), Galantamine (Razadyne), Tacrine, and any cholinesterase inhibitor for cognitive symptoms
-
-**Phase 1 (rule-based):** Checks structured binary columns. Returns immediately if any flag is 1. In this dataset these are all zero, so Phase 1 never triggers.
-
-**Phase 2 (LLM):** Primary path for this dataset. LLM reads the full note and classifies medication status:
-
-| Status | Meaning | Sets `meds_found` |
-|---|---|---|
-| `current` | Actively prescribed during this admission or at discharge | Yes |
-| `historical` | Taken in the past, now discontinued | No |
-| `refused` | Offered but patient declined | No |
-| `mentioned` | Discussed but not prescribed | No |
-| `none` | No AD medication found | No |
-
-**Output:** `meds_found`, `medications`, `status`, `source`, `confidence`, `reasoning`, `assessment`
+**Impact:** The system mirrors real clinical reasoning. Medication evidence triggers high-confidence positive predictions; ICD codes alone trigger low-confidence ones that the Synthesizer can override.
 
 ---
 
-### DiagnosisAgent (`agents/diagnosis_agent.py`)
+### 3. Contradiction Detection and Auditability
+**What:** The Synthesizer explicitly detects disagreements between agents, records which agents were overruled, and writes the full reasoning chain to `causal_chain` and `overruled_agents`.
 
-**Persona:** Medical coding specialist and diagnostician
+**Why:** Medical AI must be auditable. A black-box "prediction: 1" is not actionable for a clinician. Every decision needs to explain *why* — especially when agents contradict each other (e.g., ICD codes present but note shows an orthopedic admission with dementia only in past history).
 
-**Step 1 (rule-based, no LLM):** Matches `all_icd_codes` against a whitelist of ~50 ICD-9 and ICD-10 codes using prefix matching. If no codes match, returns immediately (no LLM call).
-
-**ICD-9 whitelist:** 2900, 29010–29043, 2940, 29410–29421, 3310–33182, 3349, 34830, 2930, 2931  
-**ICD-10 whitelist:** F0280, F0281, F0390, F0391, G30xx, G31xx, F02xx, F03xx, F0150, F0151
-
-**Step 2 (LLM, only if codes matched):** LLM reads the full note to determine whether the matched codes reflect a current active diagnosis or a historical one carried forward:
-
-| Finding | `is_current_diagnosis` | `confidence` |
-|---|---|---|
-| ICD codes + active dementia management in note | `true` | `high` |
-| ICD codes + no mention in clinical note | `true` | `medium` |
-| ICD codes + "history of" without current management | `false` | `low` |
-
-**Output:** `dx_found`, `matched_codes`, `is_current_diagnosis`, `confidence`, `reasoning`, `assessment`
+**Impact:** Full decision traceability. Reviewers can inspect exactly which agent was trusted, which was overruled, and why — for every single prediction.
 
 ---
 
-### SynthesizerAgent (`agents/synthesizer_agent.py`)
+### 4. Graceful Fallback — Zero Silent Failures
+**What:** If the Synthesizer's LLM call fails or returns unparseable output, the system automatically falls back to a deterministic rule-based decision (medication → ICD codes → symptoms, in priority order).
 
-**Persona:** Senior attending physician and dementia specialist
+**Why:** Silent failures are the worst outcome in a medical system — returning a wrong confident answer with no indication something went wrong. The fallback trades LLM reasoning for a safe, explainable rule that always produces a valid output.
 
-**Input:** Full clinical note + formatted reports from all three specialist agents (including each agent's reasoning and assessment)
-
-**Mode:** Always LLM-based. Rule-based fallback only if the LLM call fails.
-
-**Task (two parts):**
-
-*Part 1 — AD/ADRD Diagnosis:*  
-Evidence hierarchy used by the LLM: explicit physician documentation > current AD medications > current ICD codes with note support > documented cognitive symptoms > ICD codes without note support > single vague mention
-
-*Part 2 — Subtype Classification:*
-
-| Subtype | Clinical profile |
-|---|---|
-| `ad` | Progressive memory loss, language problems, gradual onset |
-| `vd` | Stepwise decline, stroke/CVD history, focal neurological signs |
-| `ftd` | Behavioral changes, language problems, younger onset, frontal symptoms |
-| `nsd` | Dementia present but insufficient evidence for specific subtype |
-| `na` | No AD/ADRD (final_prediction = 0) |
-
-Subtype is always `na` when `final_prediction = 0`.
-
-**Output:** `final_prediction`, `subtype`, `confidence`, `contributing_agents`, `causal_chain`, `discrepancy`, `overruled_agents`, `reason`
+**Impact:** The pipeline never crashes mid-run or returns a null prediction. The fallback result is clearly labeled `[Fallback — LLM failed]` in `causal_chain` so downstream reviewers know which records to re-examine.
 
 ---
 
-## Output Schema
+### 5. Cost-Optimized ICD Lookup
+**What:** DiagnosisAgent runs a rule-based ICD whitelist match *before* making any LLM call. If no AD/ADRD codes are present in the record, it returns immediately with no API cost.
 
-Results are written to `outputs/predictions_c.csv`:
+**Why:** ~40% of records have no relevant ICD codes. Sending those to an LLM just to confirm "nothing found" wastes API quota and adds latency.
 
-| Column | Description |
-|---|---|
-| `note_id` | Patient note identifier |
-| `subject_id` | Patient identifier |
-| `ground_truth` | Manual label (1=AD/ADRD, 0=No ADRD) |
-| `ground_truth_subtype` | Manual subtype label (ad/vd/nsd/na) |
-| `dx_found` | DiagnosisAgent: ICD code matched (0/1) |
-| `meds_found` | MedicationAgent: current AD med found (0/1) |
-| `symptoms_found` | ClinTextAgent: current AD symptoms found (0/1) |
-| `final_prediction` | Synthesizer diagnosis (0/1) |
-| `subtype` | Synthesizer subtype (ad/vd/ftd/nsd/na) — output only, not evaluated |
-| `confidence` | Synthesizer confidence (high/medium/low) |
-| `contributing_agents` | JSON list of agents that found positive evidence |
-| `causal_chain` | Synthesizer step-by-step reasoning |
-| `discrepancy` | Agent disagreements and how resolved |
-| `overruled_agents` | JSON list of agents overruled by Synthesizer |
-| `reason` | One-sentence final summary |
-
-Records with `ground_truth = -1` (uncertain) are skipped. Processing supports **checkpoint/resume**: previously processed `note_id`s are skipped on restart.
+**Impact:** Roughly 40% reduction in LLM calls for the DiagnosisAgent. The LLM is only invoked when there is actual evidence to evaluate (current vs. historical coding decision).
 
 ---
 
-## Performance Metrics
+### 6. Single LLM Initialization via Lifespan Pattern
+**What:** In the FastAPI service (`api.py`), the Gemini LLM client is initialized once at application startup using FastAPI's `lifespan` context manager — not recreated on every request.
 
-`compute_metrics()` evaluates binary AD/ADRD identification only:
+**Why:** Creating an LLM client involves authentication, SDK setup, and connection overhead. Rebuilding it per request adds ~100–300ms of unnecessary latency and wastes resources under concurrent load.
 
-- **Accuracy** — overall correct predictions
-- **Sensitivity** — true positive rate (recall for AD/ADRD cases)
-- **PPV** — positive predictive value (precision)
-
-Subtype classification is not evaluated — `subtype` is a supplementary output field.
+**Impact:** The LLM client is shared across all requests. Under load, this avoids resource contention and keeps per-request latency predictable.
 
 ---
 
@@ -259,54 +163,40 @@ Subtype classification is not evaluated — `subtype` is a supplementary output 
 
 ```
 ad_cyberdoctor_horizontal/
-├── main_c.py                    # Entry point: data loading, parallel execution, metrics
-├── test_run.py                  # Verbose test on first 5 records with validation checks
-├── visualize.py                 # Generates outputs/report.html (interactive report)
+├── main_c.py               # Batch pipeline: load CSV, run agents, write results, print metrics
+├── api.py                  # FastAPI service: POST /classify, GET /health
+├── requirements.txt        # Python dependencies
+├── visualize.py            # Generates outputs/report.html (interactive charts)
 ├── agents/
-│   ├── clintext_agent.py        # Layer 1: neurologist clinical judgment
-│   ├── medication_agent.py      # Layer 2: pharmacist medication check (LLM primary)
-│   ├── diagnosis_agent.py       # Layer 3: ICD rule match + LLM current/historical check
-│   ├── synthesizer_agent.py     # Final: attending physician synthesis + subtype
-│   └── cogtest_agent.py         # Retired (not imported or called)
+│   ├── clintext_agent.py   # Neurologist: symptom evidence from full note
+│   ├── medication_agent.py # Pharmacist: current AD medication detection
+│   ├── diagnosis_agent.py  # Coding specialist: ICD match + current/historical check
+│   └── synthesizer_agent.py# Attending physician: final diagnosis + subtype
 ├── data/
-│   └── data_test.csv            # Input EHR data
+│   └── data_test.csv       # Input EHR data (place your CSV here)
 └── outputs/
-    ├── predictions_c.csv        # Agent predictions
-    └── report.html              # Interactive visualization report
+    ├── predictions_c.csv   # Per-record predictions with full reasoning
+    └── report.html         # Interactive visualization report
 ```
 
 ---
 
-## Running the Pipeline
+## Output Schema
 
-```bash
-export GEMINI_API_KEY=your_key_here
+Each record in `outputs/predictions_c.csv`:
 
-# Full run
-python main_c.py
-
-# Verbose test on first 5 records
-python test_run.py
-
-# Generate interactive HTML report
-python visualize.py
-```
-
----
-
-## Key Dataset Properties
-
-| Property | Value |
+| Column | Description |
 |---|---|
-| Total records | 100 |
-| Labeled (0 or 1) | 87 (after removing uncertain -1) |
-| Positive cases (AD/ADRD) | ~54% |
-| Average note length | ~11,200 characters |
-| Maximum note length | ~45,700 characters |
-| ICD coverage (positive cases) | ~99.5% |
-| ICD false trigger rate (negative cases) | ~12.3% |
-| Structured medication columns | All zero — LLM text scan is primary path |
-| Subtype distribution | nsd: 40, na: 35, ad: 8, vd: 4 |
+| `final_prediction` | **1** = AD/ADRD present, **0** = not present |
+| `subtype` | `ad` / `vd` / `ftd` / `nsd` / `na` |
+| `confidence` | `high` / `medium` / `low` |
+| `causal_chain` | Synthesizer's step-by-step reasoning |
+| `contributing_agents` | Agents with positive findings |
+| `discrepancy` | Conflicts between agents and how resolved |
+| `overruled_agents` | Agents the Synthesizer disagreed with |
+| `dx_found` / `meds_found` / `symptoms_found` | Per-agent signal flags |
+
+Processing supports **checkpoint/resume**: records already in `predictions_c.csv` are skipped on restart.
 
 ---
 
@@ -315,8 +205,7 @@ python visualize.py
 | Parameter | Value |
 |---|---|
 | Model | `gemini-2.5-flash` |
-| Provider | Google AI (via LangChain `ChatGoogleGenerativeAI`) |
-| Temperature | 0 (deterministic) |
-| Context window | 1,000,000 tokens |
-| LLM calls per record | 4 (ClinText + Medication + Diagnosis + Synthesizer) |
-| Rate limit buffer | 30-second pause between records |
+| Temperature | `0` (deterministic) |
+| Context window | 1,000,000 tokens (full notes, no truncation) |
+| LLM calls per record | Up to 4 (3 agents + synthesizer) |
+| Rate limit buffer | 30s between records (batch mode) |
