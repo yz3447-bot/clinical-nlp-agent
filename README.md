@@ -77,16 +77,18 @@ python visualize.py
 ```
 
 **REST API (FastAPI):**
+
+Live demo available at https://clinical-nlp-agent.onrender.com/docs
+
 ```bash
+# Self-host
 uvicorn api:app --host 0.0.0.0 --port 8000
 
-# Single-record inference
-curl -X POST http://localhost:8000/classify \
+# Single-record inference (live endpoint)
+curl -X POST https://clinical-nlp-agent.onrender.com/classify \
   -H "Content-Type: application/json" \
   -d '{"text": "Patient presents with progressive memory loss...", "icd_codes": "F0280|G309"}'
 ```
-
-API docs at `http://localhost:8000/docs`.
 
 **Expected output per record:**
 ```json
