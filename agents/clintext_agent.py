@@ -65,11 +65,25 @@ def _parse_llm_json(content: str) -> dict | None:
     return None
 
 
-def run_clintext_agent(row: dict, llm) -> dict:
+def _format_rag_context(cases: list[dict]) -> str:
+    """Format retrieved cases into a prompt-ready reference block."""
+    lines = ["Reference cases from knowledge base:"]
+    for i, case in enumerate(cases, 1):
+        if case["label"] == 1:
+            descriptor = f"AD present, subtype: {case['subtype']}"
+        else:
+            descriptor = "No AD"
+        lines.append(f"Case {i} ({descriptor}): {case['text']}")
+    return "\n".join(lines)
+
+
+def run_clintext_agent(row: dict, llm, retriever=None) -> dict:
     """
     Args:
-        row: dict with 'text' key (full clinical note)
-        llm: LangChain LLM instance
+        row:       dict with 'text' key (full clinical note)
+        llm:       LangChain LLM instance
+        retriever: optional KnowledgeBase instance; if provided, retrieves 3
+                   similar cases and prepends them to the prompt as context
     Returns:
         {
           "symptoms_found": bool,
@@ -92,8 +106,19 @@ def run_clintext_agent(row: dict, llm) -> dict:
             "weight":         3,
         }
 
+    # ── Optionally prepend RAG context ────────────────────────────────────────
+    prompt = CLINTEXT_PROMPT.format(text=text)
+    if retriever is not None:
+        try:
+            similar_cases = retriever.retrieve_similar(text, n_results=3)
+            if similar_cases:
+                rag_block = _format_rag_context(similar_cases)
+                prompt = rag_block + "\n\n" + prompt
+        except Exception:
+            pass  # RAG failure must never block the main agent
+
     try:
-        response = llm.invoke(CLINTEXT_PROMPT.format(text=text))
+        response = llm.invoke(prompt)
         content  = response.content if hasattr(response, "content") else str(response)
         parsed   = _parse_llm_json(content)
 

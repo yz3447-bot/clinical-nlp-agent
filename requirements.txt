@@ -10,5 +10,8 @@ langchain-google-genai>=1.0.0
 # Data (used by main_c.py / visualize.py)
 pandas>=2.2.0
 
+# RAG
+chromadb>=0.5.0
+
 # CI
 flake8>=7.0.0

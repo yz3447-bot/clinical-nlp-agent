@@ -3,3 +3,4 @@ __pycache__/
 .env
 outputs/
 logs/
+rag/chroma_db/

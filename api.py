@@ -25,6 +25,8 @@ from agents.diagnosis_agent import run_diagnosis_agent
 from agents.medication_agent import run_medication_agent
 from agents.clintext_agent import run_clintext_agent
 from agents.synthesizer_agent import run_synthesizer_agent
+from rag.knowledge_base import KnowledgeBase
+from rag.seed_data import SEED_CASES
 
 
 # ─── Logging ─────────────────────────────────────────────────────────────────
@@ -87,16 +89,18 @@ class HealthResponse(BaseModel):
     model: str
     agents: list[str]
     total_requests: int
+    knowledge_base_size: int
 
 
 # ─── App lifespan: initialise LLM once at startup ────────────────────────────
 
 _llm: Optional[ChatGoogleGenerativeAI] = None
+_kb:  Optional[KnowledgeBase] = None
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    global _llm
+    global _llm, _kb
     api_key = os.environ.get("GEMINI_API_KEY")
     if not api_key:
         raise EnvironmentError(
@@ -108,8 +112,18 @@ async def lifespan(app: FastAPI):
         google_api_key=api_key,
         temperature=0,
     )
+    # Initialise ChromaDB and load seed cases (skips duplicates on restart)
+    _kb = KnowledgeBase()
+    for case in SEED_CASES:
+        _kb.add_case(
+            note_id=case["note_id"],
+            text=case["text"],
+            label=case["label"],
+            subtype=case["subtype"],
+        )
     yield
     _llm = None
+    _kb  = None
 
 
 # ─── App ─────────────────────────────────────────────────────────────────────
@@ -132,6 +146,7 @@ def health():
         model="gemini-2.5-flash",
         agents=["ClinTextAgent", "MedicationAgent", "DiagnosisAgent", "SynthesizerAgent"],
         total_requests=_count_requests(),
+        knowledge_base_size=_kb.get_stats() if _kb is not None else 0,
     )
 
 
@@ -159,7 +174,7 @@ def classify(request: ClassifyRequest):
         with concurrent.futures.ThreadPoolExecutor(max_workers=3) as executor:
             future_dx   = executor.submit(run_diagnosis_agent,  row, _llm)
             future_med  = executor.submit(run_medication_agent, row, _llm)
-            future_clin = executor.submit(run_clintext_agent,   row, _llm)
+            future_clin = executor.submit(run_clintext_agent,   row, _llm, _kb)
 
             try:
                 dx_result   = future_dx.result()
