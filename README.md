@@ -211,3 +211,51 @@ Processing supports **checkpoint/resume**: records already in `predictions_c.csv
 | Context window | 1,000,000 tokens (full notes, no truncation) |
 | LLM calls per record | Up to 4 (3 agents + synthesizer) |
 | Rate limit buffer | 30s between records (batch mode) |
+
+---
+
+## MCP Integration
+
+Core system capabilities are exposed as [Model Context Protocol](https://modelcontextprotocol.io) tools, allowing any MCP-compatible AI client (Claude Desktop, VS Code Copilot, etc.) to call them directly — no API key required.
+
+**Start the MCP server:**
+```bash
+python mcp_server/server.py
+```
+The server runs over stdio (MCP standard transport) and is ready to accept tool calls immediately.
+
+**Available tools:**
+
+### `retrieve_similar_cases`
+Semantic search over the ChromaDB knowledge base. Returns reference cases ranked by similarity to the input text — useful for few-shot context before a diagnosis decision.
+
+| Parameter | Type | Default | Description |
+|---|---|---|---|
+| `query_text` | `str` | required | Clinical note or description to search against |
+| `n_results` | `int` | `3` | Number of similar cases to return (max 10) |
+
+**Returns:** list of `{note_id, text, label, subtype}`
+
+```json
+[
+  {"note_id": "seed_001", "label": 1, "subtype": "ad",
+   "text": "83-year-old female with progressive memory loss..."},
+  {"note_id": "seed_006", "label": 0, "subtype": "na",
+   "text": "74-year-old female admitted for hip fracture..."}
+]
+```
+
+---
+
+### `lookup_icd_codes`
+Deterministic whitelist check — same rule-based logic as DiagnosisAgent Step 1. No LLM call, instant response.
+
+| Parameter | Type | Description |
+|---|---|---|
+| `icd_codes` | `str` | Pipe-separated ICD-9/10 codes, e.g. `"F0280\|G309\|Z87.39"` |
+
+**Returns:** `{matched_codes, is_ad_related, total_checked}`
+
+```json
+{"matched_codes": ["F0280", "G309"], "is_ad_related": true, "total_checked": 3}
+```
