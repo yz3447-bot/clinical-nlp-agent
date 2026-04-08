@@ -1,0 +1,58 @@
+name: CI
+
+# Run on every push to main and on all PRs targeting main
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  lint-and-import:
+    name: Lint & Import Check
+    runs-on: ubuntu-latest
+
+    steps:
+      # Check out the repository so subsequent steps can access the code
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      # Set up the Python version used in production
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: "pip"   # cache the pip download cache across runs
+
+      # Install all project dependencies (including flake8)
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      # Lint with flake8 — only flag real errors (E9xx = syntax/runtime errors,
+      # F63x = invalid assertions, F7xx = syntax warnings, F82x = undefined names).
+      # Line-length (E501) and style warnings are ignored so CI stays fast and
+      # focused on correctness rather than formatting preferences.
+      - name: Lint with flake8
+        run: |
+          flake8 agents/ api.py \
+            --select=E9,F63,F7,F82 \
+            --show-source \
+            --statistics
+
+      # Verify all four agent modules import cleanly — catches missing dependencies,
+      # circular imports, and syntax errors in agent code without needing an API key
+      - name: Import check — agents
+        run: |
+          python -c "
+          from agents.clintext_agent import run_clintext_agent
+          from agents.medication_agent import run_medication_agent
+          from agents.diagnosis_agent import run_diagnosis_agent
+          from agents.synthesizer_agent import run_synthesizer_agent
+          print('All agents imported successfully')
+          "
+
+      # Verify the FastAPI app module imports cleanly — catches schema errors,
+      # missing modules, and top-level exceptions without starting the server
+      # or requiring GEMINI_API_KEY (lifespan runs only on uvicorn startup)
+      - name: Import check — api
+        run: python -c "import api; print('API imported successfully')"
