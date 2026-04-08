@@ -34,10 +34,16 @@ class ClassifyRequest(BaseModel):
     )
 
 
+_LLM_COST_PER_CALL_USD = 0.002
+
+
 class ClassifyResponse(BaseModel):
     prediction: int = Field(..., description="1 = AD/ADRD present, 0 = not present")
     subtype: str = Field(..., description="ad | vd | ftd | nsd | na")
     confidence: str = Field(..., description="high | medium | low")
+    synthesis_mode: str = Field(
+        ..., description="consensus_positive | consensus_negative | llm_arbitration"
+    )
     causal_chain: str = Field(..., description="Step-by-step reasoning from the synthesizer")
     contributing_agents: list[str] = Field(
         ..., description="Agents whose findings supported the final decision"
@@ -46,6 +52,8 @@ class ClassifyResponse(BaseModel):
         None, description="Agent disagreements and how they were resolved, if any"
     )
     latency_ms: float = Field(..., description="Total pipeline wall-clock time in milliseconds")
+    llm_calls: int = Field(..., description="Actual number of LLM calls made for this request")
+    estimated_cost_usd: float = Field(..., description="Estimated API cost in USD")
 
 
 class HealthResponse(BaseModel):
@@ -138,12 +146,27 @@ def classify(request: ClassifyRequest):
 
     latency_ms = (time.perf_counter() - t0) * 1000
 
+    # ── LLM call accounting ───────────────────────────────────────────────────
+    # ClinTextAgent: always 1 call (LLM-only agent)
+    calls_clin = 1
+    # MedicationAgent: 0 if structured columns triggered, else 1
+    calls_med = 0 if med_result.get("source") == "structured" else 1
+    # DiagnosisAgent: 0 if no ICD codes matched whitelist, else 1
+    calls_dx = 0 if not dx_result.get("matched_codes") else 1
+    # SynthesizerAgent: 0 on consensus paths, 1 on LLM arbitration
+    calls_synth = 0 if synth.get("synthesis_mode") in ("consensus_positive", "consensus_negative") else 1
+
+    llm_calls = calls_clin + calls_med + calls_dx + calls_synth
+
     return ClassifyResponse(
         prediction=int(synth["final_prediction"]),
         subtype=synth["subtype"],
         confidence=synth["confidence"],
+        synthesis_mode=synth["synthesis_mode"],
         causal_chain=synth["causal_chain"],
         contributing_agents=synth["contributing_agents"],
         discrepancy=synth.get("discrepancy") or None,
         latency_ms=round(latency_ms, 2),
+        llm_calls=llm_calls,
+        estimated_cost_usd=round(llm_calls * _LLM_COST_PER_CALL_USD, 4),
     )

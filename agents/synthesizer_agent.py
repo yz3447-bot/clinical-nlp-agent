@@ -212,6 +212,7 @@ def run_synthesizer_agent(
           "final_prediction": int,
           "subtype": str,
           "confidence": str,
+          "synthesis_mode": str,   # "consensus_positive" | "consensus_negative" | "llm_arbitration"
           "total_score": int,
           "contributing_agents": list[str],
           "causal_chain": str,
@@ -221,6 +222,47 @@ def run_synthesizer_agent(
         }
     """
     score, contributing = _compute_score(clin_result, med_result, dx_result)
+
+    # ── Consensus-based early exit ────────────────────────────────────────────
+    med_pos  = bool(med_result.get("meds_found", False))
+    clin_pos = bool(clin_result.get("symptoms_found", False))
+    dx_pos   = bool(dx_result.get("dx_found", False))
+
+    if med_pos and clin_pos:
+        return {
+            "final_prediction":    1,
+            "subtype":             "nsd",
+            "confidence":          "high",
+            "synthesis_mode":      "consensus_positive",
+            "total_score":         score,
+            "contributing_agents": contributing,
+            "causal_chain":        (
+                "All specialist agents reached consensus: MedicationAgent and ClinTextAgent "
+                "both positive. LLM arbitration skipped."
+            ),
+            "discrepancy":         None,
+            "overruled_agents":    [],
+            "reason":              "Consensus positive — medication and clinical evidence both confirmed.",
+        }
+
+    if not med_pos and not clin_pos and not dx_pos:
+        return {
+            "final_prediction":    0,
+            "subtype":             "na",
+            "confidence":          "high",
+            "synthesis_mode":      "consensus_negative",
+            "total_score":         score,
+            "contributing_agents": [],
+            "causal_chain":        (
+                "All specialist agents reached consensus: no AD/ADRD evidence found. "
+                "LLM arbitration skipped."
+            ),
+            "discrepancy":         None,
+            "overruled_agents":    [],
+            "reason":              "Consensus negative — no medication, symptom, or ICD evidence found.",
+        }
+
+    # ── LLM arbitration (mixed signals) ──────────────────────────────────────
 
     prompt = SYNTHESIZER_PROMPT.format(
         clin_report=_format_clin_report(clin_result),
@@ -248,6 +290,7 @@ def run_synthesizer_agent(
                 "final_prediction":    pred,
                 "subtype":             subtype,
                 "confidence":          str(parsed.get("confidence", "low")),
+                "synthesis_mode":      "llm_arbitration",
                 "total_score":         score,
                 "contributing_agents": parsed.get("contributing_agents", contributing),
                 "causal_chain":        str(parsed.get("causal_chain", "")),
@@ -258,4 +301,6 @@ def run_synthesizer_agent(
     except Exception:
         pass
 
-    return _fallback_result(score, contributing, clin_result, med_result, dx_result)
+    result = _fallback_result(score, contributing, clin_result, med_result, dx_result)
+    result["synthesis_mode"] = "llm_arbitration"
+    return result
