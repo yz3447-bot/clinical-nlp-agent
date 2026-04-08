@@ -6,10 +6,14 @@ Endpoints:
   GET  /health    — service liveness check
 """
 
+import json
 import os
 import time
+import uuid
 import concurrent.futures
 from contextlib import asynccontextmanager
+from datetime import datetime, timezone
+from pathlib import Path
 
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel, Field
@@ -21,6 +25,28 @@ from agents.diagnosis_agent import run_diagnosis_agent
 from agents.medication_agent import run_medication_agent
 from agents.clintext_agent import run_clintext_agent
 from agents.synthesizer_agent import run_synthesizer_agent
+
+
+# ─── Logging ─────────────────────────────────────────────────────────────────
+
+_LOG_PATH = Path(__file__).parent / "logs" / "requests.jsonl"
+
+
+def _ensure_log_dir():
+    _LOG_PATH.parent.mkdir(parents=True, exist_ok=True)
+
+
+def _append_log(record: dict):
+    _ensure_log_dir()
+    with open(_LOG_PATH, "a", encoding="utf-8") as f:
+        f.write(json.dumps(record) + "\n")
+
+
+def _count_requests() -> int:
+    if not _LOG_PATH.exists():
+        return 0
+    with open(_LOG_PATH, encoding="utf-8") as f:
+        return sum(1 for line in f if line.strip())
 
 
 # ─── Pydantic schemas ────────────────────────────────────────────────────────
@@ -60,6 +86,7 @@ class HealthResponse(BaseModel):
     status: str
     model: str
     agents: list[str]
+    total_requests: int
 
 
 # ─── App lifespan: initialise LLM once at startup ────────────────────────────
@@ -104,6 +131,7 @@ def health():
         status="ok" if _llm is not None else "degraded",
         model="gemini-2.5-flash",
         agents=["ClinTextAgent", "MedicationAgent", "DiagnosisAgent", "SynthesizerAgent"],
+        total_requests=_count_requests(),
     )
 
 
@@ -118,55 +146,96 @@ def classify(request: ClassifyRequest):
     if _llm is None:
         raise HTTPException(status_code=503, detail="LLM not initialised — check GEMINI_API_KEY.")
 
+    request_id = str(uuid.uuid4())
+    t0 = time.perf_counter()
+
     row = {
         "text": request.text,
         "all_icd_codes": request.icd_codes,
     }
 
-    t0 = time.perf_counter()
-
-    # ── Parallel: specialist agents ───────────────────────────────────────────
-    with concurrent.futures.ThreadPoolExecutor(max_workers=3) as executor:
-        future_dx   = executor.submit(run_diagnosis_agent,  row, _llm)
-        future_med  = executor.submit(run_medication_agent, row, _llm)
-        future_clin = executor.submit(run_clintext_agent,   row, _llm)
-
-        try:
-            dx_result   = future_dx.result()
-            med_result  = future_med.result()
-            clin_result = future_clin.result()
-        except Exception as exc:
-            raise HTTPException(status_code=500, detail=f"Agent error: {exc}") from exc
-
-    # ── Serial: synthesizer ───────────────────────────────────────────────────
     try:
-        synth = run_synthesizer_agent(dx_result, med_result, clin_result, _llm, text=request.text)
+        # ── Parallel: specialist agents ───────────────────────────────────────
+        with concurrent.futures.ThreadPoolExecutor(max_workers=3) as executor:
+            future_dx   = executor.submit(run_diagnosis_agent,  row, _llm)
+            future_med  = executor.submit(run_medication_agent, row, _llm)
+            future_clin = executor.submit(run_clintext_agent,   row, _llm)
+
+            try:
+                dx_result   = future_dx.result()
+                med_result  = future_med.result()
+                clin_result = future_clin.result()
+            except Exception as exc:
+                raise HTTPException(status_code=500, detail=f"Agent error: {exc}") from exc
+
+        # ── Serial: synthesizer ───────────────────────────────────────────────
+        try:
+            synth = run_synthesizer_agent(dx_result, med_result, clin_result, _llm, text=request.text)
+        except Exception as exc:
+            raise HTTPException(status_code=500, detail=f"Synthesizer error: {exc}") from exc
+
+        latency_ms = (time.perf_counter() - t0) * 1000
+
+        # ── LLM call accounting ───────────────────────────────────────────────
+        # ClinTextAgent: always 1 call (LLM-only agent)
+        calls_clin = 1
+        # MedicationAgent: 0 if structured columns triggered, else 1
+        calls_med = 0 if med_result.get("source") == "structured" else 1
+        # DiagnosisAgent: 0 if no ICD codes matched whitelist, else 1
+        calls_dx = 0 if not dx_result.get("matched_codes") else 1
+        # SynthesizerAgent: 0 on consensus paths, 1 on LLM arbitration
+        calls_synth = 0 if synth.get("synthesis_mode") in ("consensus_positive", "consensus_negative") else 1
+
+        llm_calls = calls_clin + calls_med + calls_dx + calls_synth
+
+        response = ClassifyResponse(
+            prediction=int(synth["final_prediction"]),
+            subtype=synth["subtype"],
+            confidence=synth["confidence"],
+            synthesis_mode=synth["synthesis_mode"],
+            causal_chain=synth["causal_chain"],
+            contributing_agents=synth["contributing_agents"],
+            discrepancy=synth.get("discrepancy") or None,
+            latency_ms=round(latency_ms, 2),
+            llm_calls=llm_calls,
+            estimated_cost_usd=round(llm_calls * _LLM_COST_PER_CALL_USD, 4),
+        )
+
+        _append_log({
+            "timestamp":           datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+            "request_id":          request_id,
+            "input_length":        len(request.text),
+            "icd_codes":           request.icd_codes,
+            "prediction":          response.prediction,
+            "subtype":             response.subtype,
+            "confidence":          response.confidence,
+            "synthesis_mode":      response.synthesis_mode,
+            "llm_calls":           response.llm_calls,
+            "estimated_cost_usd":  response.estimated_cost_usd,
+            "latency_ms":          response.latency_ms,
+            "has_discrepancy":     response.discrepancy is not None,
+            "contributing_agents": response.contributing_agents,
+            "error":               None,
+        })
+
+        return response
+
+    except HTTPException as http_exc:
+        # Log then re-raise — preserve original status code
+        _append_log({
+            "timestamp":    datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+            "request_id":   request_id,
+            "input_length": len(request.text),
+            "error":        f"HTTP {http_exc.status_code}: {http_exc.detail}",
+            "latency_ms":   round((time.perf_counter() - t0) * 1000, 2),
+        })
+        raise
     except Exception as exc:
-        raise HTTPException(status_code=500, detail=f"Synthesizer error: {exc}") from exc
-
-    latency_ms = (time.perf_counter() - t0) * 1000
-
-    # ── LLM call accounting ───────────────────────────────────────────────────
-    # ClinTextAgent: always 1 call (LLM-only agent)
-    calls_clin = 1
-    # MedicationAgent: 0 if structured columns triggered, else 1
-    calls_med = 0 if med_result.get("source") == "structured" else 1
-    # DiagnosisAgent: 0 if no ICD codes matched whitelist, else 1
-    calls_dx = 0 if not dx_result.get("matched_codes") else 1
-    # SynthesizerAgent: 0 on consensus paths, 1 on LLM arbitration
-    calls_synth = 0 if synth.get("synthesis_mode") in ("consensus_positive", "consensus_negative") else 1
-
-    llm_calls = calls_clin + calls_med + calls_dx + calls_synth
-
-    return ClassifyResponse(
-        prediction=int(synth["final_prediction"]),
-        subtype=synth["subtype"],
-        confidence=synth["confidence"],
-        synthesis_mode=synth["synthesis_mode"],
-        causal_chain=synth["causal_chain"],
-        contributing_agents=synth["contributing_agents"],
-        discrepancy=synth.get("discrepancy") or None,
-        latency_ms=round(latency_ms, 2),
-        llm_calls=llm_calls,
-        estimated_cost_usd=round(llm_calls * _LLM_COST_PER_CALL_USD, 4),
-    )
+        _append_log({
+            "timestamp":    datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+            "request_id":   request_id,
+            "input_length": len(request.text),
+            "error":        str(exc),
+            "latency_ms":   round((time.perf_counter() - t0) * 1000, 2),
+        })
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
