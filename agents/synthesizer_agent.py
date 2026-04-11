@@ -37,6 +37,11 @@ You also have access to the complete clinical note.
 
 === YOUR TASK ===
 
+Each specialist report includes a rule-based confidence_score (0-1) computed from
+objective evidence characteristics, not self-reported by the agent. Use these scores
+as reference when weighing evidence, but you retain full clinical judgment authority
+to overrule any agent with clear explanation.
+
 PART 1 — AD/ADRD Diagnosis (yes/no):
 Synthesize all three specialist reports to determine if this patient
 currently has AD/ADRD.
@@ -97,14 +102,15 @@ def _parse_llm_json(content: str) -> dict | None:
 
 
 def _format_clin_report(r: dict) -> str:
-    found    = r.get("symptoms_found", False)
-    conf     = r.get("confidence", "low")
-    ev       = r.get("evidence_list", [])
-    ev_str   = "\n  - " + "\n  - ".join(ev[:5]) if ev else "  (none)"
-    reasoning = r.get("reasoning", "")
+    found      = r.get("symptoms_found", False)
+    conf       = r.get("confidence", "low")
+    cs         = r.get("confidence_score", 0.0)
+    ev         = r.get("evidence_list", [])
+    ev_str     = "\n  - " + "\n  - ".join(ev[:5]) if ev else "  (none)"
+    reasoning  = r.get("reasoning", "")
     assessment = r.get("assessment", "")
     return (
-        f"symptoms_found: {found} | confidence: {conf}\n"
+        f"symptoms_found: {found} | confidence: {conf} | confidence_score: {cs}\n"
         f"Evidence quotes:{ev_str}\n"
         f"Reasoning: {reasoning}\n"
         f"Assessment: {assessment}"
@@ -117,10 +123,11 @@ def _format_med_report(r: dict) -> str:
     status     = r.get("status", "none")
     source     = r.get("source", "none")
     conf       = r.get("confidence", "low")
+    cs         = r.get("confidence_score", 0.0)
     reasoning  = r.get("reasoning", "")
     assessment = r.get("assessment", "")
     return (
-        f"meds_found: {found} | status: {status} | source: {source} | confidence: {conf}\n"
+        f"meds_found: {found} | status: {status} | source: {source} | confidence: {conf} | confidence_score: {cs}\n"
         f"Medications: {meds}\n"
         f"Reasoning: {reasoning}\n"
         f"Assessment: {assessment}"
@@ -128,14 +135,15 @@ def _format_med_report(r: dict) -> str:
 
 
 def _format_dx_report(r: dict) -> str:
-    found    = r.get("dx_found", False)
-    codes    = ", ".join(r.get("matched_codes", [])) or "(none)"
-    current  = r.get("is_current_diagnosis", False)
-    conf     = r.get("confidence", "low")
+    found      = r.get("dx_found", False)
+    codes      = ", ".join(r.get("matched_codes", [])) or "(none)"
+    current    = r.get("is_current_diagnosis", False)
+    conf       = r.get("confidence", "low")
+    cs         = r.get("confidence_score", 0.0)
     reasoning  = r.get("reasoning", "")
     assessment = r.get("assessment", "")
     return (
-        f"dx_found: {found} | is_current_diagnosis: {current} | confidence: {conf}\n"
+        f"dx_found: {found} | is_current_diagnosis: {current} | confidence: {conf} | confidence_score: {cs}\n"
         f"Matched codes: {codes}\n"
         f"Reasoning: {reasoning}\n"
         f"Assessment: {assessment}"
@@ -193,6 +201,50 @@ def _fallback_result(score: int, contributing: list, clin_result: dict,
     }
 
 
+def _apply_confidence_correction(
+    result: dict,
+    clin_result: dict,
+    med_result: dict,
+    dx_result: dict,
+) -> dict:
+    """Post-processing rules that prevent the Synthesizer from being over-confident."""
+    clin_score = clin_result.get("confidence_score", 0.0)
+    med_score  = med_result.get("confidence_score", 0.0)
+    dx_score   = dx_result.get("confidence_score", 0.0)
+
+    current_confidence  = result.get("confidence", "low")
+    has_discrepancy     = bool(result.get("discrepancy"))
+    has_overruled       = bool(result.get("overruled_agents"))
+    low_evidence_count  = sum(1 for s in (clin_score, med_score, dx_score) if s < 0.3)
+    sparse_early_case   = (
+        med_score == 0.0 and
+        len(clin_result.get("evidence_list", [])) < 2
+    )
+
+    # Rule 1: discrepancy + overruled agents → cap at medium
+    if has_discrepancy and has_overruled:
+        if current_confidence == "high":
+            result["confidence"] = "medium"
+            result["confidence_correction"] = "Downgraded: discrepancy with overruled agents"
+            return result
+
+    # Rule 2: majority of agents have weak evidence → cap at low
+    if low_evidence_count >= 2:
+        if current_confidence in ("high", "medium"):
+            result["confidence"] = "low"
+            result["confidence_correction"] = "Downgraded: insufficient evidence across agents"
+            return result
+
+    # Rule 3: no medication evidence + sparse clinical quotes → cap at low
+    if sparse_early_case:
+        if current_confidence == "high":
+            result["confidence"] = "low"
+            result["confidence_correction"] = "Downgraded: sparse evidence, possible early-stage case"
+            return result
+
+    return result
+
+
 def run_synthesizer_agent(
     dx_result:   dict,
     med_result:  dict,
@@ -212,16 +264,25 @@ def run_synthesizer_agent(
           "final_prediction": int,
           "subtype": str,
           "confidence": str,
-          "synthesis_mode": str,   # "consensus_positive" | "consensus_negative" | "llm_arbitration"
+          "synthesis_mode": str,        # "consensus_positive" | "consensus_negative" | "llm_arbitration"
           "total_score": int,
           "contributing_agents": list[str],
           "causal_chain": str,
           "discrepancy": str | None,
           "overruled_agents": list[str],
-          "reason": str
+          "reason": str,
+          "confidence_score_clin": float,
+          "confidence_score_med": float,
+          "confidence_score_dx": float,
+          "confidence_correction": str | None
         }
     """
     score, contributing = _compute_score(clin_result, med_result, dx_result)
+
+    # Extract per-agent rule-based confidence scores
+    cs_clin = float(clin_result.get("confidence_score", 0.0))
+    cs_med  = float(med_result.get("confidence_score", 0.0))
+    cs_dx   = float(dx_result.get("confidence_score", 0.0))
 
     # ── Consensus-based early exit ────────────────────────────────────────────
     med_pos  = bool(med_result.get("meds_found", False))
@@ -230,36 +291,44 @@ def run_synthesizer_agent(
 
     if med_pos and clin_pos:
         return {
-            "final_prediction":    1,
-            "subtype":             "nsd",
-            "confidence":          "high",
-            "synthesis_mode":      "consensus_positive",
-            "total_score":         score,
-            "contributing_agents": contributing,
-            "causal_chain":        (
+            "final_prediction":      1,
+            "subtype":               "nsd",
+            "confidence":            "high",
+            "synthesis_mode":        "consensus_positive",
+            "total_score":           score,
+            "contributing_agents":   contributing,
+            "causal_chain":          (
                 "All specialist agents reached consensus: MedicationAgent and ClinTextAgent "
                 "both positive. LLM arbitration skipped."
             ),
-            "discrepancy":         None,
-            "overruled_agents":    [],
-            "reason":              "Consensus positive — medication and clinical evidence both confirmed.",
+            "discrepancy":           None,
+            "overruled_agents":      [],
+            "reason":                "Consensus positive — medication and clinical evidence both confirmed.",
+            "confidence_score_clin": cs_clin,
+            "confidence_score_med":  cs_med,
+            "confidence_score_dx":   cs_dx,
+            "confidence_correction": None,
         }
 
     if not med_pos and not clin_pos and not dx_pos:
         return {
-            "final_prediction":    0,
-            "subtype":             "na",
-            "confidence":          "high",
-            "synthesis_mode":      "consensus_negative",
-            "total_score":         score,
-            "contributing_agents": [],
-            "causal_chain":        (
+            "final_prediction":      0,
+            "subtype":               "na",
+            "confidence":            "high",
+            "synthesis_mode":        "consensus_negative",
+            "total_score":           score,
+            "contributing_agents":   [],
+            "causal_chain":          (
                 "All specialist agents reached consensus: no AD/ADRD evidence found. "
                 "LLM arbitration skipped."
             ),
-            "discrepancy":         None,
-            "overruled_agents":    [],
-            "reason":              "Consensus negative — no medication, symptom, or ICD evidence found.",
+            "discrepancy":           None,
+            "overruled_agents":      [],
+            "reason":                "Consensus negative — no medication, symptom, or ICD evidence found.",
+            "confidence_score_clin": cs_clin,
+            "confidence_score_med":  cs_med,
+            "confidence_score_dx":   cs_dx,
+            "confidence_correction": None,
         }
 
     # ── LLM arbitration (mixed signals) ──────────────────────────────────────
@@ -279,28 +348,39 @@ def run_synthesizer_agent(
         if parsed:
             pred    = int(parsed.get("final_prediction", 0))
             subtype = str(parsed.get("subtype", "na")).lower().strip()
-            # Validate subtype value
             if subtype not in ("ad", "vd", "ftd", "nsd", "na"):
                 subtype = "nsd" if pred == 1 else "na"
-            # Enforce consistency: if pred=0, subtype must be "na"
             if pred == 0:
                 subtype = "na"
 
-            return {
-                "final_prediction":    pred,
-                "subtype":             subtype,
-                "confidence":          str(parsed.get("confidence", "low")),
-                "synthesis_mode":      "llm_arbitration",
-                "total_score":         score,
-                "contributing_agents": parsed.get("contributing_agents", contributing),
-                "causal_chain":        str(parsed.get("causal_chain", "")),
-                "discrepancy":         parsed.get("discrepancy") or None,
-                "overruled_agents":    parsed.get("overruled_agents", []),
-                "reason":              str(parsed.get("reason", "")),
+            result = {
+                "final_prediction":      pred,
+                "subtype":               subtype,
+                "confidence":            str(parsed.get("confidence", "low")),
+                "synthesis_mode":        "llm_arbitration",
+                "total_score":           score,
+                "contributing_agents":   parsed.get("contributing_agents", contributing),
+                "causal_chain":          str(parsed.get("causal_chain", "")),
+                "discrepancy":           parsed.get("discrepancy") or None,
+                "overruled_agents":      parsed.get("overruled_agents", []),
+                "reason":                str(parsed.get("reason", "")),
+                "confidence_score_clin": cs_clin,
+                "confidence_score_med":  cs_med,
+                "confidence_score_dx":   cs_dx,
+                "confidence_correction": None,
             }
+            # Post-processing: prevent over-confident LLM outputs
+            result = _apply_confidence_correction(result, clin_result, med_result, dx_result)
+            return result
     except Exception:
         pass
 
     result = _fallback_result(score, contributing, clin_result, med_result, dx_result)
-    result["synthesis_mode"] = "llm_arbitration"
+    result.update({
+        "synthesis_mode":        "llm_arbitration",
+        "confidence_score_clin": cs_clin,
+        "confidence_score_med":  cs_med,
+        "confidence_score_dx":   cs_dx,
+        "confidence_correction": None,
+    })
     return result

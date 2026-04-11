@@ -75,6 +75,15 @@ def _normalise(code: str) -> str:
     return code.replace(".", "").strip().upper()
 
 
+def _compute_confidence_score(dx_found: bool, is_current: bool, confidence: str) -> float:
+    """Rule-based confidence score derived from ICD match and currency assessment."""
+    if not dx_found:
+        return 0.0
+    if not is_current:
+        return 0.1
+    return {"high": 0.8, "medium": 0.5, "low": 0.3}.get(confidence, 0.3)
+
+
 def _parse_llm_json(content: str) -> dict | None:
     content = re.sub(r"```(?:json)?\s*", "", content).strip().rstrip("`").strip()
     try:
@@ -124,6 +133,7 @@ def run_diagnosis_agent(row: dict, llm=None) -> dict:
             "matched_codes":        [],
             "is_current_diagnosis": False,
             "confidence":           "low",
+            "confidence_score":     0.0,
             "reasoning":            "No AD/ADRD ICD codes found in record.",
             "assessment":           "No AD/ADRD ICD codes present.",
             "weight":               1,
@@ -137,6 +147,7 @@ def run_diagnosis_agent(row: dict, llm=None) -> dict:
             "matched_codes":        matched,
             "is_current_diagnosis": True,
             "confidence":           "medium",
+            "confidence_score":     _compute_confidence_score(True, True, "medium"),
             "reasoning":            "ICD codes matched; no LLM context check available.",
             "assessment":           f"ICD codes matched ({', '.join(matched)}); assumed current.",
             "weight":               1,
@@ -153,11 +164,14 @@ def run_diagnosis_agent(row: dict, llm=None) -> dict:
         parsed   = _parse_llm_json(content)
 
         if parsed:
+            is_current = bool(parsed.get("is_current_diagnosis", True))
+            conf       = parsed.get("confidence", "medium")
             return {
                 "dx_found":             True,
                 "matched_codes":        matched,
-                "is_current_diagnosis": bool(parsed.get("is_current_diagnosis", True)),
-                "confidence":           parsed.get("confidence", "medium"),
+                "is_current_diagnosis": is_current,
+                "confidence":           conf,
+                "confidence_score":     _compute_confidence_score(True, is_current, conf),
                 "reasoning":            str(parsed.get("reasoning", "")),
                 "assessment":           str(parsed.get("assessment", "")),
                 "weight":               1,
@@ -171,6 +185,7 @@ def run_diagnosis_agent(row: dict, llm=None) -> dict:
         "matched_codes":        matched,
         "is_current_diagnosis": True,
         "confidence":           "medium",
+        "confidence_score":     _compute_confidence_score(True, True, "medium"),
         "reasoning":            "ICD codes matched; LLM context check failed.",
         "assessment":           f"ICD codes matched ({', '.join(matched)}); LLM check failed.",
         "weight":               1,

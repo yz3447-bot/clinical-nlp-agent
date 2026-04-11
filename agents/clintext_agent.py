@@ -65,6 +65,37 @@ def _parse_llm_json(content: str) -> dict | None:
     return None
 
 
+def _compute_confidence_score(symptoms_found: bool, evidence_list: list[str]) -> float:
+    """Rule-based confidence score derived from objective evidence characteristics."""
+    if not symptoms_found or not evidence_list:
+        return 0.0
+
+    score = 0.0
+
+    # Evidence quantity
+    if len(evidence_list) >= 3:
+        score += 0.4
+    else:
+        score += 0.2
+
+    # Source quality: Assessment/Plan/Discharge > HPI/PMH only
+    ev_text = " ".join(evidence_list).lower()
+    high_src = any(kw in ev_text for kw in ("assessment", "plan", "discharge"))
+    low_src  = any(kw in ev_text for kw in ("hpi", "pmh"))
+
+    if high_src:
+        score += 0.3
+    elif low_src:
+        score += 0.1
+
+    # Negation penalty
+    negations = ("no evidence", "ruled out", "no dementia", "no cognitive")
+    if any(phrase in ev_text for phrase in negations):
+        score -= 0.3
+
+    return round(max(0.0, min(1.0, score)), 4)
+
+
 def _format_rag_context(cases: list[dict]) -> str:
     """Format retrieved cases into a prompt-ready reference block."""
     lines = ["Reference cases from knowledge base:"]
@@ -91,6 +122,7 @@ def run_clintext_agent(row: dict, llm, retriever=None) -> dict:
           "reasoning": str,
           "assessment": str,
           "confidence": "high" | "medium" | "low",
+          "confidence_score": float,   # rule-based 0–1 score
           "weight": 3
         }
     """
@@ -98,12 +130,13 @@ def run_clintext_agent(row: dict, llm, retriever=None) -> dict:
 
     if not text.strip():
         return {
-            "symptoms_found": False,
-            "evidence_list":  [],
-            "reasoning":      "No clinical text provided.",
-            "assessment":     "No clinical text available.",
-            "confidence":     "low",
-            "weight":         3,
+            "symptoms_found":   False,
+            "evidence_list":    [],
+            "reasoning":        "No clinical text provided.",
+            "assessment":       "No clinical text available.",
+            "confidence":       "low",
+            "confidence_score": 0.0,
+            "weight":           3,
         }
 
     # ── Optionally prepend RAG context ────────────────────────────────────────
@@ -135,20 +168,22 @@ def run_clintext_agent(row: dict, llm, retriever=None) -> dict:
             conf = "low"
 
         return {
-            "symptoms_found": found,
-            "evidence_list":  evidence,
-            "reasoning":      reasoning,
-            "assessment":     assessment,
-            "confidence":     conf,
-            "weight":         3,
+            "symptoms_found":   found,
+            "evidence_list":    evidence,
+            "reasoning":        reasoning,
+            "assessment":       assessment,
+            "confidence":       conf,
+            "confidence_score": _compute_confidence_score(found, evidence),
+            "weight":           3,
         }
 
     except Exception as e:
         return {
-            "symptoms_found": False,
-            "evidence_list":  [],
-            "reasoning":      f"Agent error: {e}",
-            "assessment":     "Agent error — defaulting negative.",
-            "confidence":     "low",
-            "weight":         3,
+            "symptoms_found":   False,
+            "evidence_list":    [],
+            "reasoning":        f"Agent error: {e}",
+            "assessment":       "Agent error — defaulting negative.",
+            "confidence":       "low",
+            "confidence_score": 0.0,
+            "weight":           3,
         }

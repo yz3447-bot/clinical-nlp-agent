@@ -82,6 +82,12 @@ class ClassifyResponse(BaseModel):
     latency_ms: float = Field(..., description="Total pipeline wall-clock time in milliseconds")
     llm_calls: int = Field(..., description="Actual number of LLM calls made for this request")
     estimated_cost_usd: float = Field(..., description="Estimated API cost in USD")
+    confidence_score_clin: float = Field(..., description="Rule-based confidence score from ClinTextAgent (0–1)")
+    confidence_score_med: float = Field(..., description="Rule-based confidence score from MedicationAgent (0–1)")
+    confidence_score_dx: float = Field(..., description="Rule-based confidence score from DiagnosisAgent (0–1)")
+    confidence_correction: Optional[str] = Field(
+        None, description="Reason if post-processing rules downgraded Synthesizer confidence"
+    )
 
 
 class HealthResponse(BaseModel):
@@ -214,23 +220,31 @@ def classify(request: ClassifyRequest):
             latency_ms=round(latency_ms, 2),
             llm_calls=llm_calls,
             estimated_cost_usd=round(llm_calls * _LLM_COST_PER_CALL_USD, 4),
+            confidence_score_clin=synth["confidence_score_clin"],
+            confidence_score_med=synth["confidence_score_med"],
+            confidence_score_dx=synth["confidence_score_dx"],
+            confidence_correction=synth.get("confidence_correction") or None,
         )
 
         _append_log({
-            "timestamp":           datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
-            "request_id":          request_id,
-            "input_length":        len(request.text),
-            "icd_codes":           request.icd_codes,
-            "prediction":          response.prediction,
-            "subtype":             response.subtype,
-            "confidence":          response.confidence,
-            "synthesis_mode":      response.synthesis_mode,
-            "llm_calls":           response.llm_calls,
-            "estimated_cost_usd":  response.estimated_cost_usd,
-            "latency_ms":          response.latency_ms,
-            "has_discrepancy":     response.discrepancy is not None,
-            "contributing_agents": response.contributing_agents,
-            "error":               None,
+            "timestamp":             datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+            "request_id":            request_id,
+            "input_length":          len(request.text),
+            "icd_codes":             request.icd_codes,
+            "prediction":            response.prediction,
+            "subtype":               response.subtype,
+            "confidence":            response.confidence,
+            "synthesis_mode":        response.synthesis_mode,
+            "llm_calls":             response.llm_calls,
+            "estimated_cost_usd":    response.estimated_cost_usd,
+            "latency_ms":            response.latency_ms,
+            "has_discrepancy":       response.discrepancy is not None,
+            "contributing_agents":   response.contributing_agents,
+            "confidence_score_clin": response.confidence_score_clin,
+            "confidence_score_med":  response.confidence_score_med,
+            "confidence_score_dx":   response.confidence_score_dx,
+            "confidence_correction": response.confidence_correction,
+            "error":                 None,
         })
 
         return response

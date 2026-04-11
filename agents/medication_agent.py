@@ -58,6 +58,21 @@ Output ONLY this JSON:
 }}"""
 
 
+def _compute_confidence_score(meds_found: bool, source: str, status: str) -> float:
+    """Rule-based confidence score derived from medication source and status."""
+    if not meds_found:
+        return 0.0
+    if source == "structured":
+        return 0.9
+    if status == "current":
+        return 0.7
+    if status == "historical":
+        return 0.2
+    if status in ("refused", "mentioned"):
+        return 0.1
+    return 0.0
+
+
 def _parse_llm_json(content: str) -> dict | None:
     content = re.sub(r"```(?:json)?\s*", "", content).strip().rstrip("`").strip()
     try:
@@ -104,28 +119,30 @@ def run_medication_agent(row: dict, llm=None) -> dict:
 
     if structured_meds:
         return {
-            "meds_found":  True,
-            "medications": structured_meds,
-            "status":      "current",
-            "source":      "structured",
-            "confidence":  "high",
-            "reasoning":   f"Structured columns flag: {', '.join(structured_meds)}.",
-            "assessment":  f"Active prescription confirmed via structured data: {', '.join(structured_meds)}.",
-            "weight":      3,
+            "meds_found":       True,
+            "medications":      structured_meds,
+            "status":           "current",
+            "source":           "structured",
+            "confidence":       "high",
+            "confidence_score": _compute_confidence_score(True, "structured", "current"),
+            "reasoning":        f"Structured columns flag: {', '.join(structured_meds)}.",
+            "assessment":       f"Active prescription confirmed via structured data: {', '.join(structured_meds)}.",
+            "weight":           3,
         }
 
     # ── Phase 2: LLM full-text scan ───────────────────────────────────────────
     text = str(row.get("text", "") or "")
     if not text.strip() or llm is None:
         return {
-            "meds_found":  False,
-            "medications": [],
-            "status":      "none",
-            "source":      "none",
-            "confidence":  "low",
-            "reasoning":   "No text available for LLM scan.",
-            "assessment":  "Cannot assess — no clinical text.",
-            "weight":      3,
+            "meds_found":       False,
+            "medications":      [],
+            "status":           "none",
+            "source":           "none",
+            "confidence":       "low",
+            "confidence_score": 0.0,
+            "reasoning":        "No text available for LLM scan.",
+            "assessment":       "Cannot assess — no clinical text.",
+            "weight":           3,
         }
 
     try:
@@ -134,26 +151,30 @@ def run_medication_agent(row: dict, llm=None) -> dict:
         parsed   = _parse_llm_json(content)
 
         if parsed:
+            found  = bool(parsed.get("meds_found", False))
+            status = parsed.get("status", "none")
             return {
-                "meds_found":  bool(parsed.get("meds_found", False)),
-                "medications": parsed.get("medications", []),
-                "status":      parsed.get("status", "none"),
-                "source":      "text",
-                "confidence":  parsed.get("confidence", "low"),
-                "reasoning":   str(parsed.get("reasoning", "")),
-                "assessment":  str(parsed.get("assessment", "")),
-                "weight":      3,
+                "meds_found":       found,
+                "medications":      parsed.get("medications", []),
+                "status":           status,
+                "source":           "text",
+                "confidence":       parsed.get("confidence", "low"),
+                "confidence_score": _compute_confidence_score(found, "text", status),
+                "reasoning":        str(parsed.get("reasoning", "")),
+                "assessment":       str(parsed.get("assessment", "")),
+                "weight":           3,
             }
     except Exception as e:
         pass
 
     return {
-        "meds_found":  False,
-        "medications": [],
-        "status":      "none",
-        "source":      "none",
-        "confidence":  "low",
-        "reasoning":   "LLM scan failed.",
-        "assessment":  "LLM scan failed — defaulting negative.",
-        "weight":      3,
+        "meds_found":       False,
+        "medications":      [],
+        "status":           "none",
+        "source":           "none",
+        "confidence":       "low",
+        "confidence_score": 0.0,
+        "reasoning":        "LLM scan failed.",
+        "assessment":       "LLM scan failed — defaulting negative.",
+        "weight":           3,
     }
