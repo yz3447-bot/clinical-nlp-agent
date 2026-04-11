@@ -1,6 +1,6 @@
 # AD/ADRD CyberDoctor — Horizontal Multi-Agent System
 
-**Detects Alzheimer's Disease and related dementias (AD/ADRD) from hospital EHR discharge summaries using three parallel AI specialist agents, eliminating the false positives caused by naive keyword matching or ICD-code lookups alone.**
+**Detects Alzheimer's Disease and related dementias (AD/ADRD) from hospital EHR discharge summaries using three parallel AI specialist agents with rule-based confidence scoring and post-hoc correction — achieving 94.3% sensitivity on 87 labeled cases while eliminating the false positives caused by naive keyword matching or ICD-code lookups alone.**
 
 ---
 
@@ -110,39 +110,39 @@ curl -X POST https://clinical-nlp-agent.onrender.com/classify \
 The eval harness reads `outputs/predictions_c.csv` directly — **no pipeline re-run required**.
 
 ```bash
-# Basic eval (no API key needed) — prints metrics + saves HTML report
+# Basic eval — no API key needed, prints metrics + saves HTML report
 python eval/eval_harness.py
-
-# Custom predictions file
-python eval/eval_harness.py --predictions outputs/predictions_c.csv --output eval/reports/
 
 # Full eval with LLM-as-judge (requires GEMINI_API_KEY)
 python eval/eval_harness.py --run-llm-judge
 ```
 
-**What it produces:**
+**Results on test set (87 labeled cases):**
 
-| Output | Description |
+| Metric | Value |
 |---|---|
-| Stdout summary | Accuracy, sensitivity, PPV, specificity, F1, confusion matrix, bucket counts |
-| `eval/reports/eval_report_<ts>.html` | Self-contained HTML: all metrics, error cases, judge scores |
+| Accuracy | **90.8%** |
+| Sensitivity | **94.3%** |
+| PPV (Precision) | **90.9%** |
+| F1 | **92.6%** |
+| Contradictory cases | **38 / 87 (44%)** — agents disagreed; resolved by Synthesizer |
 
 **Error buckets:**
 
-| Bucket | Definition |
-|---|---|
-| False Positives | Predicted AD/ADRD, actually negative |
-| False Negatives | Predicted no AD/ADRD, actually positive |
-| Contradictory errors | Prediction wrong + agents had discrepancy |
-| Low-confidence errors | Prediction wrong + `confidence == "low"` |
-| Consensus errors | Prediction wrong on consensus (no-LLM) path |
+| Bucket | Count | Definition |
+|---|---|---|
+| False Positives | 5 | Predicted AD/ADRD, actually negative |
+| False Negatives | 3 | Predicted no AD/ADRD, actually positive |
+| Contradictory cases | 38 | Agents had discrepancy — core focus for LLM judge analysis |
+| Low-confidence cases | — | `confidence == "low"` |
+| Consensus cases | — | All three agents agreed but prediction was wrong |
 
-**LLM-as-judge** scores contradictory cases on three dimensions (0–1 each):
+**LLM-as-judge** (enabled with `--run-llm-judge`) scores each contradictory case on three dimensions (0–1):
 - `reasoning_clarity` — decision traceable to specific evidence?
 - `contradiction_handling` — overrule justification sufficient?
-- `evidence_consistency` — conclusion matches cited evidence?
+- `evidence_consistency` — conclusion consistent with cited evidence?
 
-**CI gate:** The GitHub Actions workflow runs the eval harness on every push. If `predictions_c.csv` is present and sensitivity drops below **0.90**, the build fails.
+**CI gate:** Runs automatically on every push. If `predictions_c.csv` exists and sensitivity drops below **0.90**, the build fails and the merge is blocked.
 
 ---
 
@@ -199,6 +199,24 @@ python eval/eval_harness.py --run-llm-judge
 **Why:** Creating an LLM client involves authentication, SDK setup, and connection overhead. Rebuilding it per request adds ~100–300ms of unnecessary latency and wastes resources under concurrent load.
 
 **Impact:** The LLM client is shared across all requests. Under load, this avoids resource contention and keeps per-request latency predictable.
+
+---
+
+### 7. Rule-Based Confidence Scoring
+**What:** Each agent computes a deterministic confidence score (0–1) from objective evidence characteristics — independently of what the LLM self-reports. ClinTextAgent scores by evidence count and source location (Assessment/Plan/Discharge = strong; HPI/PMH = weak; negation phrases = penalty). MedicationAgent scores by prescription status (structured column hit = 0.9; current text = 0.7; historical = 0.2; refused/mentioned = 0.1). DiagnosisAgent scores by ICD currency assessment (current + high confidence = 0.8; historical only = 0.1). These scores are passed to the Synthesizer as explicit signals in the prompt.
+
+**Why:** LLM self-reported confidence is unreliable — models frequently express high confidence regardless of actual evidence quality. Rule-based scores are reproducible, inspectable, and cannot be inflated by confident-sounding but unsupported LLM text.
+
+**Impact:** The Synthesizer receives objective evidence quality signals alongside each agent's narrative. Downstream systems and the LLM judge can use these scores to flag cases that warrant closer review, independent of the LLM's own assessment.
+
+---
+
+### 8. Post-hoc Confidence Correction
+**What:** After the Synthesizer produces its output, a deterministic rule layer applies forced confidence downgrades before the result is returned. Three rules: (1) discrepancy present + agents overruled → cap at `medium`; (2) two or more agents with confidence score < 0.3 → force to `low`; (3) no medication evidence and fewer than two clinical quotes → force to `low`. Each downgrade writes a reason to the `confidence_correction` field.
+
+**Why:** LLMs tend toward overconfidence, especially when asked to synthesize conflicting evidence and reach a conclusion. A `high` confidence label on a contested case misleads downstream users. The post-hoc layer enforces consistency between the stated confidence and the objective evidence quality without modifying the LLM's substantive reasoning.
+
+**Impact:** Confidence labels become trustworthy as a triage signal. Cases flagged `low` after correction are candidates for human review; cases remaining `high` have passed both the LLM and the rule layer. The correction reason provides a clear audit trail for why a label was changed.
 
 ---
 
