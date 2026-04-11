@@ -56,3 +56,14 @@ jobs:
       # or requiring GEMINI_API_KEY (lifespan runs only on uvicorn startup)
       - name: Import check — api
         run: python -c "import api; print('API imported successfully')"
+
+      # Run the eval harness against existing predictions (no LLM, no API key).
+      # Skipped silently when predictions_c.csv is absent (e.g. first push).
+      # Fails the build if sensitivity drops below 0.90.
+      - name: Eval harness — sensitivity gate
+        run: |
+          if [ -f outputs/predictions_c.csv ]; then
+            python eval/eval_harness.py --predictions outputs/predictions_c.csv
+          else
+            echo "No predictions_c.csv found — skipping eval gate."
+          fi

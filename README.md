@@ -105,6 +105,47 @@ curl -X POST https://clinical-nlp-agent.onrender.com/classify \
 
 ---
 
+## Evaluation
+
+The eval harness reads `outputs/predictions_c.csv` directly — **no pipeline re-run required**.
+
+```bash
+# Basic eval (no API key needed) — prints metrics + saves HTML report
+python eval/eval_harness.py
+
+# Custom predictions file
+python eval/eval_harness.py --predictions outputs/predictions_c.csv --output eval/reports/
+
+# Full eval with LLM-as-judge (requires GEMINI_API_KEY)
+python eval/eval_harness.py --run-llm-judge
+```
+
+**What it produces:**
+
+| Output | Description |
+|---|---|
+| Stdout summary | Accuracy, sensitivity, PPV, specificity, F1, confusion matrix, bucket counts |
+| `eval/reports/eval_report_<ts>.html` | Self-contained HTML: all metrics, error cases, judge scores |
+
+**Error buckets:**
+
+| Bucket | Definition |
+|---|---|
+| False Positives | Predicted AD/ADRD, actually negative |
+| False Negatives | Predicted no AD/ADRD, actually positive |
+| Contradictory errors | Prediction wrong + agents had discrepancy |
+| Low-confidence errors | Prediction wrong + `confidence == "low"` |
+| Consensus errors | Prediction wrong on consensus (no-LLM) path |
+
+**LLM-as-judge** scores contradictory cases on three dimensions (0–1 each):
+- `reasoning_clarity` — decision traceable to specific evidence?
+- `contradiction_handling` — overrule justification sufficient?
+- `evidence_consistency` — conclusion matches cited evidence?
+
+**CI gate:** The GitHub Actions workflow runs the eval harness on every push. If `predictions_c.csv` is present and sensitivity drops below **0.90**, the build fails.
+
+---
+
 ## Engineering Design Decisions
 
 ### 1. Parallel Agent Execution

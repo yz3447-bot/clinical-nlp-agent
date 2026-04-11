@@ -1,0 +1,8 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(python -c ':*)",
+      "Bash(python eval/eval_harness.py --predictions outputs/predictions_c.csv --output eval/reports/)"
+    ]
+  }
+}
