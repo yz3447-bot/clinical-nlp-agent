@@ -65,6 +65,24 @@ class ClassifyRequest(BaseModel):
 _LLM_COST_PER_CALL_USD = 0.002
 
 
+class AgentFindings(BaseModel):
+    """Raw per-agent findings returned alongside the synthesizer result."""
+    # ClinTextAgent
+    symptoms_found: bool
+    evidence_list: list[str]
+    clin_reasoning: str
+    # MedicationAgent
+    meds_found: bool
+    medications: list[str]
+    med_status: str
+    med_source: str
+    # DiagnosisAgent
+    dx_found: bool
+    matched_codes: list[str]
+    is_current_diagnosis: bool
+    dx_reasoning: str
+
+
 class ClassifyResponse(BaseModel):
     prediction: int = Field(..., description="1 = AD/ADRD present, 0 = not present")
     subtype: str = Field(..., description="ad | vd | ftd | nsd | na")
@@ -87,6 +105,9 @@ class ClassifyResponse(BaseModel):
     confidence_score_dx: float = Field(..., description="Rule-based confidence score from DiagnosisAgent (0–1)")
     confidence_correction: Optional[str] = Field(
         None, description="Reason if post-processing rules downgraded Synthesizer confidence"
+    )
+    agent_findings: Optional[AgentFindings] = Field(
+        None, description="Raw per-agent findings (evidence, medications, ICD codes)"
     )
 
 
@@ -209,6 +230,20 @@ def classify(request: ClassifyRequest):
 
         llm_calls = calls_clin + calls_med + calls_dx + calls_synth
 
+        findings = AgentFindings(
+            symptoms_found=bool(clin_result.get("symptoms_found", False)),
+            evidence_list=list(clin_result.get("evidence_list", [])),
+            clin_reasoning=str(clin_result.get("reasoning", "")),
+            meds_found=bool(med_result.get("meds_found", False)),
+            medications=list(med_result.get("medications", [])),
+            med_status=str(med_result.get("status", "none")),
+            med_source=str(med_result.get("source", "text")),
+            dx_found=bool(dx_result.get("dx_found", False)),
+            matched_codes=list(dx_result.get("matched_codes", [])),
+            is_current_diagnosis=bool(dx_result.get("is_current_diagnosis", False)),
+            dx_reasoning=str(dx_result.get("reasoning", "")),
+        )
+
         response = ClassifyResponse(
             prediction=int(synth["final_prediction"]),
             subtype=synth["subtype"],
@@ -224,6 +259,7 @@ def classify(request: ClassifyRequest):
             confidence_score_med=synth["confidence_score_med"],
             confidence_score_dx=synth["confidence_score_dx"],
             confidence_correction=synth.get("confidence_correction") or None,
+            agent_findings=findings,
         )
 
         _append_log({

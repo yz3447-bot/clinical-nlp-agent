@@ -5,3 +5,5 @@ outputs/
 logs/
 rag/chroma_db/
 eval/reports/
+
+.claude/

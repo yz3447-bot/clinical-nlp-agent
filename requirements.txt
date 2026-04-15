@@ -16,5 +16,9 @@ chromadb>=0.5.0
 # MCP tool layer
 mcp>=1.0.0
 
+# Frontend
+streamlit>=1.35.0
+plotly>=5.22.0
+
 # CI
 flake8>=7.0.0
