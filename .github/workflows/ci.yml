@@ -67,3 +67,7 @@ jobs:
           else
             echo "No predictions_c.csv found â€” skipping eval gate."
           fi
+
+      # Run unit tests â€" verifies core synthesizer logic without any API key
+      - name: Unit tests â€" pytest
+        run: pytest tests/ -v
