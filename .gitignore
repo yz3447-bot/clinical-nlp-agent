@@ -1,7 +1,6 @@
 __pycache__/
 *.pyc
 .env
-outputs/
 logs/
 rag/chroma_db/
 eval/reports/

@@ -1,0 +1,714 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AD/ADRD Multi-Agent Report</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<style>
+/* ── Reset & Base ─────────────────────────────────────────── */
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Segoe UI',Arial,sans-serif;background:#f0f2f5;color:#2c3e50}
+a{color:inherit}
+/* ── Header ──────────────────────────────────────────────── */
+header{background:linear-gradient(135deg,#1a237e,#283593);color:#fff;padding:24px 40px}
+header h1{font-size:1.8rem}
+header p{font-size:.95rem;opacity:.85;margin-top:4px}
+/* ── Layout ──────────────────────────────────────────────── */
+main{max-width:1300px;margin:0 auto;padding:32px 24px}
+section{margin-bottom:56px}
+h2{font-size:1.4rem;color:#1a237e;border-left:4px solid #3f51b5;
+   padding-left:12px;margin-bottom:20px}
+h3{font-size:1.05rem;color:#37474f;margin-bottom:14px}
+.subtitle{font-size:.85rem;color:#78909c;font-weight:normal}
+/* ── Filter / Search Bar ─────────────────────────────────── */
+.toolbar{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin-bottom:20px}
+.filter-btn{padding:6px 16px;border-radius:20px;border:1.5px solid #c5cae9;
+            background:#fff;color:#3f51b5;font-size:.82rem;font-weight:600;
+            cursor:pointer;transition:all .15s}
+.filter-btn:hover{background:#e8eaf6}
+.filter-btn.active{background:#3f51b5;color:#fff;border-color:#3f51b5}
+.search-box{padding:6px 14px;border-radius:20px;border:1.5px solid #c5cae9;
+            font-size:.85rem;width:200px;outline:none;transition:border .15s}
+.search-box:focus{border-color:#3f51b5}
+.count-label{font-size:.82rem;color:#78909c;margin-left:auto}
+/* ── Cards Grid ──────────────────────────────────────────── */
+.cards-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(380px,1fr));gap:20px}
+.card{background:#fff;border-radius:12px;border:1px solid #e0e0e0;
+      box-shadow:0 2px 8px rgba(0,0,0,.07);overflow:hidden;transition:box-shadow .2s}
+.card:hover{box-shadow:0 4px 16px rgba(0,0,0,.12)}
+.card-top{padding:18px 18px 0}
+/* ── Card Header ─────────────────────────────────────────── */
+.card-header{display:flex;align-items:center;gap:8px;margin-bottom:14px;flex-wrap:wrap}
+.card-title{font-weight:700;font-size:.95rem;color:#1a237e}
+.card-sub{font-size:.8rem;color:#90a4ae;flex:1}
+/* ── Badges ──────────────────────────────────────────────── */
+.agent-badges{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:14px}
+.badge{padding:4px 11px;border-radius:20px;font-size:.76rem;font-weight:600;
+       display:inline-flex;align-items:center;gap:4px;white-space:nowrap}
+.badge-yes{background:#e8f5e9;color:#2e7d32;border:1px solid #a5d6a7}
+.badge-no {background:#fce4ec;color:#c62828;border:1px solid #ef9a9a}
+.badge-agent{cursor:pointer;transition:filter .15s;user-select:none}
+.badge-agent:hover{filter:brightness(.93)}
+.badge-info{font-size:.7rem;opacity:.7;margin-left:2px}
+.result-correct{background:#e8f5e9;color:#1b5e20}
+.result-wrong  {background:#fce4ec;color:#b71c1c}
+/* ── Evidence Bar ────────────────────────────────────────── */
+.bar-wrap{margin-bottom:12px}
+.bar-label{font-size:.76rem;color:#78909c}
+.bar-bg{background:#eceff1;border-radius:6px;height:7px;margin-top:4px}
+.bar-fill{background:linear-gradient(90deg,#3f51b5,#7c4dff);border-radius:6px;
+          height:7px;transition:width .3s}
+/* ── Score / Prediction ──────────────────────────────────── */
+.score-row,.pred-row{display:flex;justify-content:space-between;
+                     font-size:.85rem;margin-bottom:7px}
+.pred-pos{color:#c62828}
+.pred-neg{color:#1565c0}
+/* ── Expand Toggle ───────────────────────────────────────── */
+.toggle-btn{width:100%;text-align:center;padding:8px;font-size:.78rem;
+            color:#3f51b5;background:none;border:none;border-top:1px solid #f0f0f0;
+            cursor:pointer;display:flex;align-items:center;justify-content:center;gap:4px}
+.toggle-btn:hover{background:#f5f5f5}
+.toggle-arrow{display:inline-block;transition:transform .2s;font-size:.7rem}
+.card-detail{padding:14px 18px 16px;border-top:1px solid #f0f0f0;display:none}
+.card-detail.open{display:block}
+.reason-box{background:#f7f8fc;border-radius:6px;padding:10px 12px;
+            font-size:.81rem;color:#455a64;line-height:1.55;
+            border-left:3px solid #90a4ae;margin-bottom:10px}
+.contrib-list{display:flex;flex-wrap:wrap;gap:6px;font-size:.78rem}
+.contrib-chip{background:#e8eaf6;color:#3f51b5;border-radius:12px;
+              padding:2px 10px;border:1px solid #c5cae9}
+/* ── Load More ───────────────────────────────────────────── */
+.load-more-wrap{text-align:center;margin-top:24px}
+.load-more-btn{padding:10px 32px;border-radius:24px;border:2px solid #3f51b5;
+               background:#fff;color:#3f51b5;font-size:.9rem;font-weight:600;
+               cursor:pointer;transition:all .15s}
+.load-more-btn:hover{background:#3f51b5;color:#fff}
+.load-more-btn:disabled{opacity:.4;cursor:default}
+/* ── Dashboard Metrics ───────────────────────────────────── */
+.metrics-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-bottom:28px}
+.metric-box{background:#fff;border-radius:12px;padding:24px 16px;text-align:center;
+            box-shadow:0 2px 8px rgba(0,0,0,.07)}
+.metric-val{font-size:2.1rem;font-weight:700;color:#1a237e}
+.metric-lbl{font-size:.82rem;color:#78909c;margin-top:4px}
+/* ── Charts Row ──────────────────────────────────────────── */
+.charts-row{display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-bottom:28px}
+.chart-box{background:#fff;border-radius:12px;padding:22px;
+           box-shadow:0 2px 8px rgba(0,0,0,.07)}
+/* ── Confusion Matrix ────────────────────────────────────── */
+.cm-wrap{display:flex;flex-direction:column;align-items:center;gap:6px}
+.cm-header{display:grid;grid-template-columns:90px 1fr 1fr;width:100%;gap:4px}
+.cm-header-cell{text-align:center;font-size:.75rem;color:#78909c;font-weight:600;padding:4px}
+.cm-row{display:grid;grid-template-columns:90px 1fr 1fr;width:100%;gap:4px}
+.cm-row-label{display:flex;align-items:center;justify-content:flex-end;
+              padding-right:10px;font-size:.75rem;color:#78909c;font-weight:600}
+.cm-cell{border-radius:10px;padding:14px 8px;text-align:center;min-height:70px;
+         display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px}
+.cm-tp,.cm-tn{background:#e8f5e9;border:1.5px solid #a5d6a7}
+.cm-fp,.cm-fn{background:#fce4ec;border:1.5px solid #ef9a9a}
+.cm-count{font-size:1.7rem;font-weight:700}
+.cm-tp .cm-count,.cm-tn .cm-count{color:#2e7d32}
+.cm-fp .cm-count,.cm-fn .cm-count{color:#c62828}
+.cm-label{font-size:.72rem;font-weight:600;letter-spacing:.5px;opacity:.8}
+.cm-pct{font-size:.75rem;color:#78909c}
+.cm-axis-label{font-size:.78rem;font-weight:600;color:#37474f;margin-bottom:4px}
+/* ── Disagreement Section ────────────────────────────────── */
+.disagree-section{background:#fff;border-radius:12px;padding:22px;
+                  box-shadow:0 2px 8px rgba(0,0,0,.07);margin-bottom:28px}
+.disagree-summary{display:flex;gap:24px;margin-bottom:16px;flex-wrap:wrap}
+.disagree-stat{background:#fff3e0;border-radius:8px;padding:12px 18px;
+               border:1px solid #ffe0b2;text-align:center}
+.disagree-stat .ds-val{font-size:1.5rem;font-weight:700;color:#e65100}
+.disagree-stat .ds-lbl{font-size:.78rem;color:#78909c;margin-top:2px}
+.disagree-table{width:100%;border-collapse:collapse;font-size:.83rem}
+.disagree-table th{background:#f5f5f5;padding:8px 12px;text-align:left;
+                   font-size:.78rem;color:#78909c;border-bottom:2px solid #e0e0e0}
+.disagree-table td{padding:8px 12px;border-bottom:1px solid #f0f0f0}
+.disagree-table tr:last-child td{border-bottom:none}
+.disagree-table tr:hover td{background:#fafafa}
+.tag-rule{background:#e3f2fd;color:#1565c0;border-radius:10px;
+          padding:2px 8px;font-size:.73rem;font-weight:600}
+.tag-llm{background:#f3e5f5;color:#6a1b9a;border-radius:10px;
+         padding:2px 8px;font-size:.73rem;font-weight:600}
+/* ── Comparison Table ────────────────────────────────────── */
+.comparison-section{margin-top:8px}
+.comparison-table{width:100%;border-collapse:collapse;background:#fff;
+                  border-radius:12px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,.07)}
+.comparison-table th{background:#1a237e;color:#fff;padding:12px 16px;
+                     font-size:.85rem;text-align:left}
+.comparison-table td{padding:11px 16px;font-size:.85rem;border-bottom:1px solid #eceff1}
+.comparison-table tr:last-child td{border-bottom:none}
+.comparison-table tr:hover td{background:#f5f5f5}
+/* ── Popup ───────────────────────────────────────────────── */
+.popup-overlay{position:fixed;inset:0;background:rgba(0,0,0,.45);
+               display:flex;align-items:center;justify-content:center;
+               z-index:1000;opacity:0;pointer-events:none;transition:opacity .2s}
+.popup-overlay.visible{opacity:1;pointer-events:all}
+.popup{background:#fff;border-radius:14px;padding:0;max-width:480px;width:90%;
+       max-height:80vh;overflow-y:auto;box-shadow:0 8px 32px rgba(0,0,0,.2);
+       transform:scale(.95);transition:transform .2s}
+.popup-overlay.visible .popup{transform:scale(1)}
+.popup-head{display:flex;align-items:center;gap:10px;padding:16px 20px;
+            border-bottom:1px solid #f0f0f0;position:sticky;top:0;background:#fff;
+            border-radius:14px 14px 0 0;z-index:1}
+.popup-icon{font-size:1.4rem}
+.popup-title{font-weight:700;font-size:1rem;color:#1a237e;flex:1}
+.popup-type-tag{font-size:.72rem;padding:3px 9px;border-radius:10px;font-weight:600}
+.type-rule{background:#e3f2fd;color:#1565c0}
+.type-llm {background:#f3e5f5;color:#6a1b9a}
+.popup-close{background:none;border:none;font-size:1.3rem;cursor:pointer;
+             color:#90a4ae;padding:0 4px;line-height:1;transition:color .15s}
+.popup-close:hover{color:#e53935}
+.popup-body{padding:16px 20px 20px}
+.popup-status{display:flex;align-items:center;gap:8px;margin-bottom:14px;
+              padding:10px 14px;border-radius:8px;font-weight:600;font-size:.88rem}
+.popup-status.found   {background:#e8f5e9;color:#2e7d32}
+.popup-status.notfound{background:#fce4ec;color:#c62828}
+.popup-section{margin-bottom:12px}
+.popup-section-title{font-size:.75rem;font-weight:700;color:#78909c;
+                     text-transform:uppercase;letter-spacing:.6px;margin-bottom:5px}
+.popup-section-body{font-size:.84rem;color:#455a64;line-height:1.55;
+                    background:#f7f8fc;border-radius:6px;padding:9px 12px}
+.popup-score-chip{display:inline-block;background:#e8eaf6;color:#3f51b5;
+                  border-radius:10px;padding:3px 12px;font-size:.82rem;font-weight:700;
+                  margin-top:4px}
+/* ── Empty State ─────────────────────────────────────────── */
+.empty-state{text-align:center;padding:48px 20px;color:#90a4ae;font-size:.95rem}
+/* ── Responsive ──────────────────────────────────────────── */
+@media(max-width:900px){
+  .metrics-grid{grid-template-columns:repeat(2,1fr)}
+  .charts-row{grid-template-columns:1fr}
+  .cards-grid{grid-template-columns:1fr}
+  header{padding:20px 20px}
+  main{padding:20px 16px}
+}
+@media(max-width:480px){
+  .metrics-grid{grid-template-columns:repeat(2,1fr)}
+  .search-box{width:150px}
+  .toolbar{gap:6px}
+}
+</style>
+</head>
+<body>
+
+<header>
+  <h1>AD/ADRD Identification &mdash; Multi-Agent System Report</h1>
+  <p>Horizontal Architecture (main_c.py) &nbsp;&bull;&nbsp;
+     <span id="total-count">87</span> records evaluated</p>
+</header>
+
+<main>
+
+<!-- ══ PART 1 ══════════════════════════════════════════════════════════════ -->
+<section id="part1">
+  <h2>Part 1: Decision Cards</h2>
+
+  <!-- Toolbar -->
+  <div class="toolbar">
+    <button class="filter-btn active" data-filter="featured">Featured (6)</button>
+    <button class="filter-btn" data-filter="all">All</button>
+    <button class="filter-btn" data-filter="correct">Correct Only</button>
+    <button class="filter-btn" data-filter="wrong">Wrong Only</button>
+    <button class="filter-btn" data-filter="medium">Medium Confidence</button>
+    <button class="filter-btn" data-filter="disagree">Agent Disagreement</button>
+    <input class="search-box" type="text" id="note-search" placeholder="&#128269; Search note ID…">
+    <span class="count-label" id="count-label">Showing 0 of 0</span>
+  </div>
+
+  <div class="cards-grid" id="cards-grid"></div>
+
+  <div class="load-more-wrap" id="load-more-wrap" style="display:none">
+    <button class="load-more-btn" id="load-more-btn">Load More</button>
+  </div>
+</section>
+
+<!-- ══ PART 2 ══════════════════════════════════════════════════════════════ -->
+<section id="part2">
+  <h2>Part 2: Overall Performance Dashboard</h2>
+
+  <!-- Big 4 metrics -->
+  <div class="metrics-grid" id="metrics-grid"></div>
+
+  <!-- Confusion Matrix + Grouped Bar Chart -->
+  <div class="charts-row">
+    <div class="chart-box">
+      <h3>Confusion Matrix</h3>
+      <div id="confusion-matrix"></div>
+    </div>
+    <div class="chart-box">
+      <h3>Agent Contribution Analysis</h3>
+      <p style="font-size:.78rem;color:#90a4ae;margin-bottom:12px">
+        Flag rate: % records where agent flagged positive &nbsp;&bull;&nbsp;
+        Precision: % of flagged records that are truly AD/ADRD+
+      </p>
+      <canvas id="contrib-chart" height="200"></canvas>
+    </div>
+  </div>
+
+  <!-- Disagreement Section -->
+  <div class="disagree-section">
+    <h3>Agent Disagreement Cases
+      <span class="subtitle">— Rule agents (ICD+Meds) vs LLM agents (CogTest+ClinText) give conflicting signals</span>
+    </h3>
+    <div id="disagree-content"></div>
+  </div>
+
+  <!-- System Comparison (shown only if predictions_a.csv or _b.csv exist) -->
+  <div id="comparison-section"></div>
+
+</section>
+
+</main>
+
+<!-- ══ POPUP OVERLAY ═══════════════════════════════════════════════════════ -->
+<div class="popup-overlay" id="popup-overlay" role="dialog" aria-modal="true">
+  <div class="popup" id="popup">
+    <div class="popup-head">
+      <span class="popup-icon" id="popup-icon"></span>
+      <span class="popup-title" id="popup-title"></span>
+      <span class="popup-type-tag" id="popup-type-tag"></span>
+      <button class="popup-close" id="popup-close" aria-label="Close">&times;</button>
+    </div>
+    <div class="popup-body" id="popup-body"></div>
+  </div>
+</div>
+
+<script>
+// ── Injected data ──────────────────────────────────────────────────────────
+const DATA          = [{"note_id": "18922134-DS-10", "subject_id": "18922134", "ground_truth": 1, "final_prediction": 1, "dx_found": 1, "meds_found": 0, "test_found": 0, "symptoms_found": 1, "total_score": 4, "confidence": "medium", "contributing_agents": ["ClinTextAgent", "DiagnosisAgent"], "reason": "Layer 1 — ClinText (medium conf): explicit AD symptoms found: \"cognitive impairment/dementia NOS\". Layer 2 — CogTest: no cognitive test scores documented. Layer 3 — Medication: no AD-specific medications found. Layer 4 — ICD: matched codes (F0390) corroborate diagnosis.", "is_correct": 1, "found_count": 2, "rule_pos": 1, "llm_pos": 1, "is_disagreement": 0}, {"note_id": "16059144-DS-24", "subject_id": "16059144", "ground_truth": 1, "final_prediction": 1, "dx_found": 1, "meds_found": 0, "test_found": 0, "symptoms_found": 1, "total_score": 4, "confidence": "high", "contributing_agents": ["ClinTextAgent", "DiagnosisAgent"], "reason": "Layer 1 — ClinText (high conf): explicit AD symptoms found: \"sometimes forgets daughters name\". Layer 2 — CogTest: no cognitive test scores documented. Layer 3 — Medication: no AD-specific medications found. Layer 4 — ICD: matched codes (34830, 29421) corroborate diagnosis.", "is_correct": 1, "found_count": 2, "rule_pos": 1, "llm_pos": 1, "is_disagreement": 0}, {"note_id": "12596965-DS-9", "subject_id": "12596965", "ground_truth": 0, "final_prediction": 0, "dx_found": 0, "meds_found": 0, "test_found": 0, "symptoms_found": 0, "total_score": 0, "confidence": "high", "contributing_agents": [], "reason": "Layer 1 — ClinText: no explicit AD symptoms identified in clinical text. Layer 2 — CogTest: no cognitive test scores documented. Layer 3 — Medication: no AD-specific medications found. Layer 4 — ICD: no AD/ADRD diagnostic codes found.", "is_correct": 1, "found_count": 0, "rule_pos": 0, "llm_pos": 0, "is_disagreement": 0}, {"note_id": "10404360-DS-25", "subject_id": "10404360", "ground_truth": 1, "final_prediction": 1, "dx_found": 1, "meds_found": 0, "test_found": 0, "symptoms_found": 0, "total_score": 1, "confidence": "low", "contributing_agents": ["DiagnosisAgent"], "reason": "Layer 1 — ClinText: no explicit AD symptoms identified in clinical text. Layer 2 — CogTest: no cognitive test scores documented. Layer 3 — Medication: no AD-specific medications found. Layer 4 — ICD: matched codes (29420) corroborate diagnosis.", "is_correct": 1, "found_count": 1, "rule_pos": 1, "llm_pos": 0, "is_disagreement": 1}, {"note_id": "19917861-DS-10", "subject_id": "19917861", "ground_truth": 1, "final_prediction": 1, "dx_found": 1, "meds_found": 0, "test_found": 0, "symptoms_found": 1, "total_score": 4, "confidence": "high", "contributing_agents": ["ClinTextAgent", "DiagnosisAgent"], "reason": "Layer 1 — ClinText (high conf): explicit AD symptoms found: \"Dementia\". Layer 2 — CogTest: no cognitive test scores documented. Layer 3 — Medication: no AD-specific medications found. Layer 4 — ICD: matched codes (3316, 3349, 29410) corroborate diagnosis.", "is_correct": 1, "found_count": 2, "rule_pos": 1, "llm_pos": 1, "is_disagreement": 0}, {"note_id": "16754064-DS-19", "subject_id": "16754064", "ground_truth": 0, "final_prediction": 0, "dx_found": 0, "meds_found": 0, "test_found": 0, "symptoms_found": 0, "total_score": 0, "confidence": "high", "contributing_agents": [], "reason": "Layer 1 — ClinText: no explicit AD symptoms identified in clinical text. Layer 2 — CogTest: no cognitive test scores documented. Layer 3 — Medication: no AD-specific medications found. Layer 4 — ICD: no AD/ADRD diagnostic codes found.", "is_correct": 1, "found_count": 0, "rule_pos": 0, "llm_pos": 0, "is_disagreement": 0}, {"note_id": "14728179-DS-7", "subject_id": "14728179", "ground_truth": 1, "final_prediction": 1, "dx_found": 1, "meds_found": 0, "test_found": 0, "symptoms_found": 1, "total_score": 4, "confidence": "high", "contributing_agents": ["ClinTextAgent", "DiagnosisAgent"], "reason": "Layer 1 — ClinText (high conf): explicit AD symptoms found: \"She is unable to recollect most of the history due to her dementia\". Layer 2 — CogTest: no cognitive test scores documented. Layer 3 — Medication: no AD-specific medications found. Layer 4 — ICD: matched codes (F0390) corroborate diagnosis.", "is_correct": 1, "found_count": 2, "rule_pos": 1, "llm_pos": 1, "is_disagreement": 0}, {"note_id": "17904720-DS-11", "subject_id": "17904720", "ground_truth": 0, "final_prediction": 0, "dx_found": 0, "meds_found": 0, "test_found": 0, "symptoms_found": 0, "total_score": 0, "confidence": "high", "contributing_agents": [], "reason": "Layer 1 — ClinText: no explicit AD symptoms identified in clinical text. Layer 2 — CogTest: no cognitive test scores documented. Layer 3 — Medication: no AD-specific medications found. Layer 4 — ICD: no AD/ADRD diagnostic codes found.", "is_correct": 1, "found_count": 0, "rule_pos": 0, "llm_pos": 0, "is_disagreement": 0}, {"note_id": "15314851-DS-18", "subject_id": "15314851", "ground_truth": 1, "final_prediction": 1, "dx_found": 1, "meds_found": 0, "test_found": 0, "symptoms_found": 0, "total_score": 1, "confidence": "low", "contributing_agents": ["DiagnosisAgent"], "reason": "Layer 1 — ClinText: no explicit AD symptoms identified in clinical text. Layer 2 — CogTest: no cognitive test scores documented. Layer 3 — Medication: no AD-specific medications found. Layer 4 — ICD: matched codes (F0390) corroborate diagnosis.", "is_correct": 1, "found_count": 1, "rule_pos": 1, "llm_pos": 0, "is_disagreement": 1}, {"note_id": "11368669-DS-5", "subject_id": "11368669", "ground_truth": 0, "final_prediction": 0, "dx_found": 0, "meds_found": 0, "test_found": 0, "symptoms_found": 0, "total_score": 0, "confidence": "high", "contributing_agents": [], "reason": "Layer 1 — ClinText: no explicit AD symptoms identified in clinical text. Layer 2 — CogTest: no cognitive test scores documented. Layer 3 — Medication: no AD-specific medications found. Layer 4 — ICD: no AD/ADRD diagnostic codes found.", "is_correct": 1, "found_count": 0, "rule_pos": 0, "llm_pos": 0, "is_disagreement": 0}, {"note_id": "16749509-DS-20", "subject_id": "16749509", "ground_truth": 1, "final_prediction": 1, "dx_found": 1, "meds_found": 0, "test_found": 0, "symptoms_found": 1, "total_score": 4, "confidence": "high", "contributing_agents": ["ClinTextAgent", "DiagnosisAgent"], "reason": "Layer 1 — ClinText (high conf): explicit AD symptoms found: \"baseline AOx1 per nursing ___ report\". Layer 2 — CogTest: no cognitive test scores documented. Layer 3 — Medication: no AD-specific medications found. Layer 4 — ICD: matched codes (29420) corroborate diagnosis.", "is_correct": 1, "found_count": 2, "rule_pos": 1, "llm_pos": 1, "is_disagreement": 0}, {"note_id": "14477122-DS-14", "subject_id": "14477122", "ground_truth": 1, "final_prediction": 1, "dx_found": 1, "meds_found": 0, "test_found": 0, "symptoms_found": 0, "total_score": 1, "confidence": "low", "contributing_agents": ["DiagnosisAgent"], "reason": "Layer 1 — ClinText: no explicit AD symptoms identified in clinical text. Layer 2 — CogTest: no cognitive test scores documented. Layer 3 — Medication: no AD-specific medications found. Layer 4 — ICD: matched codes (3310, 29410) corroborate diagnosis.", "is_correct": 1, "found_count": 1, "rule_pos": 1, "llm_pos": 0, "is_disagreement": 1}, {"note_id": "11068845-DS-9", "subject_id": "11068845", "ground_truth": 1, "final_prediction": 1, "dx_found": 1, "meds_found": 0, "test_found": 0, "symptoms_found": 1, "total_score": 4, "confidence": "medium", "contributing_agents": ["ClinTextAgent", "DiagnosisAgent"], "reason": "Layer 1 — ClinText (medium conf): explicit AD symptoms found: \"Orientation: unable to assess.\". Layer 2 — CogTest: no cognitive test scores documented. Layer 3 — Medication: no AD-specific medications found. Layer 4 — ICD: matched codes (29420) corroborate diagnosis.", "is_correct": 1, "found_count": 2, "rule_pos": 1, "llm_pos": 1, "is_disagreement": 0}, {"note_id": "11866915-DS-5", "subject_id": "11866915", "ground_truth": 0, "final_prediction": 0, "dx_found": 0, "meds_found": 0, "test_found": 0, "symptoms_found": 0, "total_score": 0, "confidence": "high", "contributing_agents": [], "reason": "Layer 1 — ClinText: no explicit AD symptoms identified in clinical text. Layer 2 — CogTest: no cognitive test scores documented. Layer 3 — Medication: no AD-specific medications found. Layer 4 — ICD: no AD/ADRD diagnostic codes found.", "is_correct": 1, "found_count": 0, "rule_pos": 0, "llm_pos": 0, "is_disagreement": 0}, {"note_id": "19139995-DS-5", "subject_id": "19139995", "ground_truth": 1, "final_prediction": 1, "dx_found": 1, "meds_found": 0, "test_found": 0, "symptoms_found": 1, "total_score": 4, "confidence": "medium", "contributing_agents": ["ClinTextAgent", "DiagnosisAgent"], "reason": "Layer 1 — ClinText (medium conf): explicit AD symptoms found: \"Dementia, mild\". Layer 2 — CogTest: no cognitive test scores documented. Layer 3 — Medication: no AD-specific medications found. Layer 4 — ICD: matched codes (29420) corroborate diagnosis.", "is_correct": 1, "found_count": 2, "rule_pos": 1, "llm_pos": 1, "is_disagreement": 0}, {"note_id": "10281634-DS-8", "subject_id": "10281634", "ground_truth": 0, "final_prediction": 0, "dx_found": 0, "meds_found": 0, "test_found": 0, "symptoms_found": 0, "total_score": 0, "confidence": "high", "contributing_agents": [], "reason": "Layer 1 — ClinText: no explicit AD symptoms identified in clinical text. Layer 2 — CogTest: no cognitive test scores documented. Layer 3 — Medication: no AD-specific medications found. Layer 4 — ICD: no AD/ADRD diagnostic codes found.", "is_correct": 1, "found_count": 0, "rule_pos": 0, "llm_pos": 0, "is_disagreement": 0}, {"note_id": "12112670-DS-7", "subject_id": "12112670", "ground_truth": 1, "final_prediction": 1, "dx_found": 1, "meds_found": 0, "test_found": 0, "symptoms_found": 1, "total_score": 4, "confidence": "high", "contributing_agents": ["ClinTextAgent", "DiagnosisAgent"], "reason": "Layer 1 — ClinText (high conf): explicit AD symptoms found: \"She later became agitated and was noted to be yelling, cursing, and kicking and swatting staff.\". Layer 2 — CogTest: no cognitive test scores documented. Layer 3 — Medication: no AD-specific medications found. Layer 4 — ICD: matched codes (F0390) corroborate diagnosis.", "is_correct": 1, "found_count": 2, "rule_pos": 1, "llm_pos": 1, "is_disagreement": 0}, {"note_id": "14799868-DS-22", "subject_id": "14799868", "ground_truth": 1, "final_prediction": 1, "dx_found": 1, "meds_found": 1, "test_found": 0, "symptoms_found": 1, "total_score": 7, "confidence": "high", "contributing_agents": ["ClinTextAgent", "MedicationAgent", "DiagnosisAgent"], "reason": "Layer 1 — ClinText (high conf): explicit AD symptoms found: \"Per the family, Ms. ___ is usually A+Ox2.\". Layer 2 — CogTest: no cognitive test scores documented. Layer 3 — Medication: donepezil prescribed [source: text] — confirms clinical management of AD. Layer 4 — ICD: matched codes (2930, 29420) corroborate diagnosis.", "is_correct": 1, "found_count": 3, "rule_pos": 1, "llm_pos": 1, "is_disagreement": 0}, {"note_id": "18982683-DS-24", "subject_id": "18982683", "ground_truth": 0, "final_prediction": 0, "dx_found": 0, "meds_found": 0, "test_found": 0, "symptoms_found": 0, "total_score": 0, "confidence": "high", "contributing_agents": [], "reason": "Layer 1 — ClinText: no explicit AD symptoms identified in clinical text. Layer 2 — CogTest: no cognitive test scores documented. Layer 3 — Medication: no AD-specific medications found. Layer 4 — ICD: no AD/ADRD diagnostic codes found.", "is_correct": 1, "found_count": 0, "rule_pos": 0, "llm_pos": 0, "is_disagreement": 0}, {"note_id": "12089245-DS-17", "subject_id": "12089245", "ground_truth": 1, "final_prediction": 1, "dx_found": 1, "meds_found": 1, "test_found": 0, "symptoms_found": 1, "total_score": 7, "confidence": "high", "contributing_agents": ["ClinTextAgent", "MedicationAgent", "DiagnosisAgent"], "reason": "Layer 1 — ClinText (high conf): explicit AD symptoms found: \"PMH dementia\". Layer 2 — CogTest: no cognitive test scores documented. Layer 3 — Medication: donepezil 20mg prescribed [source: text] — confirms clinical management of AD. Layer 4 — ICD: matched codes (29420) corroborate diagnosis.", "is_correct": 1, "found_count": 3, "rule_pos": 1, "llm_pos": 1, "is_disagreement": 0}, {"note_id": "19527667-DS-15", "subject_id": "19527667", "ground_truth": 1, "final_prediction": 1, "dx_found": 1, "meds_found": 1, "test_found": 0, "symptoms_found": 1, "total_score": 7, "confidence": "high", "contributing_agents": ["ClinTextAgent", "MedicationAgent", "DiagnosisAgent"], "reason": "Layer 1 — ClinText (high conf): explicit AD symptoms found: \"A+Ox0 at baseline\". Layer 2 — CogTest: no cognitive test scores documented. Layer 3 — Medication: memantine, rivastigmine prescribed [source: structured] — confirms clinical management of AD. Layer 4 — ICD: matched codes (F0390) corroborate diagnosis.", "is_correct": 1, "found_count": 3, "rule_pos": 1, "llm_pos": 1, "is_disagreement": 0}, {"note_id": "12277320-DS-2", "subject_id": "12277320", "ground_truth": 1, "final_prediction": 1, "dx_found": 1, "meds_found": 0, "test_found": 0, "symptoms_found": 1, "total_score": 4, "confidence": "medium", "contributing_agents": ["ClinTextAgent", "DiagnosisAgent"], "reason": "Layer 1 — ClinText (medium conf): explicit AD symptoms found: \"Dementia\". Layer 2 — CogTest: no cognitive test scores documented. Layer 3 — Medication: no AD-specific medications found. Layer 4 — ICD: matched codes (29420) corroborate diagnosis.", "is_correct": 1, "found_count": 2, "rule_pos": 1, "llm_pos": 1, "is_disagreement": 0}, {"note_id": "11364274-DS-12", "subject_id": "11364274", "ground_truth": 1, "final_prediction": 1, "dx_found": 1, "meds_found": 0, "test_found": 0, "symptoms_found": 1, "total_score": 4, "confidence": "high", "contributing_agents": ["ClinTextAgent", "DiagnosisAgent"], "reason": "Layer 1 — ClinText (high conf): explicit AD symptoms found: \"agitation\". Layer 2 — CogTest: no cognitive test scores documented. Layer 3 — Medication: no AD-specific medications found. Layer 4 — ICD: matched codes (34830, 29020) corroborate diagnosis.", "is_correct": 1, "found_count": 2, "rule_pos": 1, "llm_pos": 1, "is_disagreement": 0}, {"note_id": "14344003-DS-12", "subject_id": "14344003", "ground_truth": 1, "final_prediction": 1, "dx_found": 1, "meds_found": 1, "test_found": 0, "symptoms_found": 1, "total_score": 7, "confidence": "high", "contributing_agents": ["ClinTextAgent", "MedicationAgent", "DiagnosisAgent"], "reason": "Layer 1 — ClinText (high conf): explicit AD symptoms found: \"dementia\". Layer 2 — CogTest: no cognitive test scores documented. Layer 3 — Medication: memantine prescribed [source: structured] — confirms clinical management of AD. Layer 4 — ICD: matched codes (2930, 29040) corroborate diagnosis.", "is_correct": 1, "found_count": 3, "rule_pos": 1, "llm_pos": 1, "is_disagreement": 0}, {"note_id": "14821269-DS-15", "subject_id": "14821269", "ground_truth": 1, "final_prediction": 1, "dx_found": 1, "meds_found": 1, "test_found": 0, "symptoms_found": 1, "total_score": 7, "confidence": "high", "contributing_agents": ["ClinTextAgent", "MedicationAgent", "DiagnosisAgent"], "reason": "Layer 1 — ClinText (medium conf): explicit AD symptoms found: \"dementia (from Past Medical History)\". Layer 2 — CogTest: no cognitive test scores documented. Layer 3 — Medication: memantine prescribed [source: structured] — confirms clinical management of AD. Layer 4 — ICD: matched codes (29420) corroborate diagnosis.", "is_correct": 1, "found_count": 3, "rule_pos": 1, "llm_pos": 1, "is_disagreement": 0}, {"note_id": "19408546-DS-5", "subject_id": "19408546", "ground_truth": 0, "final_prediction": 0, "dx_found": 0, "meds_found": 0, "test_found": 0, "symptoms_found": 0, "total_score": 0, "confidence": "high", "contributing_agents": [], "reason": "Layer 1 — ClinText: no explicit AD symptoms identified in clinical text. Layer 2 — CogTest: no cognitive test scores documented. Layer 3 — Medication: no AD-specific medications found. Layer 4 — ICD: no AD/ADRD diagnostic codes found.", "is_correct": 1, "found_count": 0, "rule_pos": 0, "llm_pos": 0, "is_disagreement": 0}, {"note_id": "16201781-DS-21", "subject_id": "16201781", "ground_truth": 1, "final_prediction": 1, "dx_found": 1, "meds_found": 0, "test_found": 0, "symptoms_found": 1, "total_score": 4, "confidence": "high", "contributing_agents": ["ClinTextAgent", "DiagnosisAgent"], "reason": "Layer 1 — ClinText (high conf): explicit AD symptoms found: \"___ female with hx of afib, mod-severe MR, diastolic heart failure, dementia here with paleness.\". Layer 2 — CogTest: no cognitive test scores documented. Layer 3 — Medication: no AD-specific medications found. Layer 4 — ICD: matched codes (29420) corroborate diagnosis.", "is_correct": 1, "found_count": 2, "rule_pos": 1, "llm_pos": 1, "is_disagreement": 0}, {"note_id": "18985506-DS-20", "subject_id": "18985506", "ground_truth": 1, "final_prediction": 1, "dx_found": 1, "meds_found": 0, "test_found": 0, "symptoms_found": 1, "total_score": 4, "confidence": "medium", "contributing_agents": ["ClinTextAgent", "DiagnosisAgent"], "reason": "Layer 1 — ClinText (medium conf): explicit AD symptoms found: \"Mr. ___ is a ___ w/hx of CAD s/p stent, Afib, CVA, dementia, PVD, Rt hip replacement c/b MRSA p/w ___ pain and ___\". Layer 2 — CogTest: no cognitive test scores documented. Layer 3 — Medication: no AD-specific medications found. Layer 4 — ICD: matched codes (F0390) corroborate diagnosis.", "is_correct": 1, "found_count": 2, "rule_pos": 1, "llm_pos": 1, "is_disagreement": 0}, {"note_id": "11837605-DS-24", "subject_id": "11837605", "ground_truth": 1, "final_prediction": 1, "dx_found": 1, "meds_found": 0, "test_found": 0, "symptoms_found": 0, "total_score": 1, "confidence": "low", "contributing_agents": ["DiagnosisAgent"], "reason": "Layer 1 — ClinText: no explicit AD symptoms identified in clinical text. Layer 2 — CogTest: no cognitive test scores documented. Layer 3 — Medication: no AD-specific medications found. Layer 4 — ICD: matched codes (33182, 29410) corroborate diagnosis.", "is_correct": 1, "found_count": 1, "rule_pos": 1, "llm_pos": 0, "is_disagreement": 1}, {"note_id": "13545585-DS-16", "subject_id": "13545585", "ground_truth": 1, "final_prediction": 1, "dx_found": 1, "meds_found": 0, "test_found": 0, "symptoms_found": 0, "total_score": 1, "confidence": "low", "contributing_agents": ["DiagnosisAgent"], "reason": "Layer 1 — ClinText: no explicit AD symptoms identified in clinical text. Layer 2 — CogTest: no cognitive test scores documented. Layer 3 — Medication: no AD-specific medications found. Layer 4 — ICD: matched codes (F0150) corroborate diagnosis.", "is_correct": 1, "found_count": 1, "rule_pos": 1, "llm_pos": 0, "is_disagreement": 1}, {"note_id": "14583397-DS-21", "subject_id": "14583397", "ground_truth": 1, "final_prediction": 1, "dx_found": 1, "meds_found": 0, "test_found": 0, "symptoms_found": 1, "total_score": 4, "confidence": "high", "contributing_agents": ["ClinTextAgent", "DiagnosisAgent"], "reason": "Layer 1 — ClinText (high conf): explicit AD symptoms found: \"dementia\". Layer 2 — CogTest: no cognitive test scores documented. Layer 3 — Medication: no AD-specific medications found. Layer 4 — ICD: matched codes (29420) corroborate diagnosis.", "is_correct": 1, "found_count": 2, "rule_pos": 1, "llm_pos": 1, "is_disagreement": 0}, {"note_id": "12390114-DS-18", "subject_id": "12390114", "ground_truth": 1, "final_prediction": 1, "dx_found": 1, "meds_found": 0, "test_found": 0, "symptoms_found": 1, "total_score": 4, "confidence": "medium", "contributing_agents": ["ClinTextAgent", "DiagnosisAgent"], "reason": "Layer 1 — ClinText (medium conf): explicit AD symptoms found: \"mild dementia\". Layer 2 — CogTest: no cognitive test scores documented. Layer 3 — Medication: no AD-specific medications found. Layer 4 — ICD: matched codes (F0390) corroborate diagnosis.", "is_correct": 1, "found_count": 2, "rule_pos": 1, "llm_pos": 1, "is_disagreement": 0}, {"note_id": "18778050-DS-5", "subject_id": "18778050", "ground_truth": 0, "final_prediction": 1, "dx_found": 1, "meds_found": 0, "test_found": 0, "symptoms_found": 1, "total_score": 4, "confidence": "medium", "contributing_agents": ["ClinTextAgent", "DiagnosisAgent"], "reason": "Layer 1 — ClinText (medium conf): explicit AD symptoms found: \"patient was persistently delirious in the ED.\". Layer 2 — CogTest: no cognitive test scores documented. Layer 3 — Medication: no AD-specific medications found. Layer 4 — ICD: matched codes (F0390) corroborate diagnosis.", "is_correct": 0, "found_count": 2, "rule_pos": 1, "llm_pos": 1, "is_disagreement": 0}, {"note_id": "11762722-DS-22", "subject_id": "11762722", "ground_truth": 1, "final_prediction": 1, "dx_found": 1, "meds_found": 0, "test_found": 0, "symptoms_found": 1, "total_score": 4, "confidence": "medium", "contributing_agents": ["ClinTextAgent", "DiagnosisAgent"], "reason": "Layer 1 — ClinText (medium conf): explicit AD symptoms found: \"The patient experienced intermittent agitation during his hospital stay\". Layer 2 — CogTest: no cognitive test scores documented. Layer 3 — Medication: no AD-specific medications found. Layer 4 — ICD: matched codes (F0281, G309) corroborate diagnosis.", "is_correct": 1, "found_count": 2, "rule_pos": 1, "llm_pos": 1, "is_disagreement": 0}, {"note_id": "10716890-DS-10", "subject_id": "10716890", "ground_truth": 1, "final_prediction": 1, "dx_found": 1, "meds_found": 0, "test_found": 0, "symptoms_found": 1, "total_score": 4, "confidence": "medium", "contributing_agents": ["ClinTextAgent", "DiagnosisAgent"], "reason": "Layer 1 — ClinText (medium conf): explicit AD symptoms found: \"hx dementia\". Layer 2 — CogTest: no cognitive test scores documented. Layer 3 — Medication: no AD-specific medications found. Layer 4 — ICD: matched codes (F0390) corroborate diagnosis.", "is_correct": 1, "found_count": 2, "rule_pos": 1, "llm_pos": 1, "is_disagreement": 0}, {"note_id": "19040142-DS-12", "subject_id": "19040142", "ground_truth": 0, "final_prediction": 0, "dx_found": 0, "meds_found": 0, "test_found": 0, "symptoms_found": 0, "total_score": 0, "confidence": "high", "contributing_agents": [], "reason": "Layer 1 — ClinText: no explicit AD symptoms identified in clinical text. Layer 2 — CogTest: no cognitive test scores documented. Layer 3 — Medication: no AD-specific medications found. Layer 4 — ICD: no AD/ADRD diagnostic codes found.", "is_correct": 1, "found_count": 0, "rule_pos": 0, "llm_pos": 0, "is_disagreement": 0}, {"note_id": "13640406-DS-9", "subject_id": "13640406", "ground_truth": 1, "final_prediction": 1, "dx_found": 1, "meds_found": 0, "test_found": 0, "symptoms_found": 1, "total_score": 4, "confidence": "medium", "contributing_agents": ["ClinTextAgent", "DiagnosisAgent"], "reason": "Layer 1 — ClinText (medium conf): explicit AD symptoms found: \"On arrival on the floor the patient is a poor historian and no further information was obtained.\". Layer 2 — CogTest: no cognitive test scores documented. Layer 3 — Medication: no AD-specific medications found. Layer 4 — ICD: matched codes (29420) corroborate diagnosis.", "is_correct": 1, "found_count": 2, "rule_pos": 1, "llm_pos": 1, "is_disagreement": 0}, {"note_id": "18653563-DS-53", "subject_id": "18653563", "ground_truth": 1, "final_prediction": 1, "dx_found": 1, "meds_found": 0, "test_found": 0, "symptoms_found": 1, "total_score": 4, "confidence": "high", "contributing_agents": ["ClinTextAgent", "DiagnosisAgent"], "reason": "Layer 1 — ClinText (high conf): explicit AD symptoms found: \"worsening confusion since ___\". Layer 2 — CogTest: no cognitive test scores documented. Layer 3 — Medication: no AD-specific medications found. Layer 4 — ICD: matched codes (29420) corroborate diagnosis.", "is_correct": 1, "found_count": 2, "rule_pos": 1, "llm_pos": 1, "is_disagreement": 0}, {"note_id": "16911004-DS-12", "subject_id": "16911004", "ground_truth": 0, "final_prediction": 0, "dx_found": 0, "meds_found": 0, "test_found": 0, "symptoms_found": 0, "total_score": 0, "confidence": "high", "contributing_agents": [], "reason": "Layer 1 — ClinText: no explicit AD symptoms identified in clinical text. Layer 2 — CogTest: no cognitive test scores documented. Layer 3 — Medication: no AD-specific medications found. Layer 4 — ICD: no AD/ADRD diagnostic codes found.", "is_correct": 1, "found_count": 0, "rule_pos": 0, "llm_pos": 0, "is_disagreement": 0}, {"note_id": "18579789-DS-11", "subject_id": "18579789", "ground_truth": 1, "final_prediction": 1, "dx_found": 1, "meds_found": 1, "test_found": 0, "symptoms_found": 1, "total_score": 7, "confidence": "high", "contributing_agents": ["ClinTextAgent", "MedicationAgent", "DiagnosisAgent"], "reason": "Layer 1 — ClinText (high conf): explicit AD symptoms found: \"forgetting names\". Layer 2 — CogTest: no cognitive test scores documented. Layer 3 — Medication: memantine prescribed [source: structured] — confirms clinical management of AD. Layer 4 — ICD: matched codes (3310, 29410) corroborate diagnosis.", "is_correct": 1, "found_count": 3, "rule_pos": 1, "llm_pos": 1, "is_disagreement": 0}, {"note_id": "15763754-DS-13", "subject_id": "15763754", "ground_truth": 0, "final_prediction": 1, "dx_found": 1, "meds_found": 0, "test_found": 0, "symptoms_found": 0, "total_score": 1, "confidence": "low", "contributing_agents": ["DiagnosisAgent"], "reason": "Layer 1 — ClinText: no explicit AD symptoms identified in clinical text. Layer 2 — CogTest: no cognitive test scores documented. Layer 3 — Medication: no AD-specific medications found. Layer 4 — ICD: matched codes (3310) corroborate diagnosis.", "is_correct": 0, "found_count": 1, "rule_pos": 1, "llm_pos": 0, "is_disagreement": 1}, {"note_id": "11906279-DS-7", "subject_id": "11906279", "ground_truth": 1, "final_prediction": 1, "dx_found": 1, "meds_found": 1, "test_found": 0, "symptoms_found": 1, "total_score": 7, "confidence": "high", "contributing_agents": ["ClinTextAgent", "MedicationAgent", "DiagnosisAgent"], "reason": "Layer 1 — ClinText (high conf): explicit AD symptoms found: \"She is a poor historian\". Layer 2 — CogTest: no cognitive test scores documented. Layer 3 — Medication: rivastigmine prescribed [source: structured] — confirms clinical management of AD. Layer 4 — ICD: matched codes (F0390) corroborate diagnosis.", "is_correct": 1, "found_count": 3, "rule_pos": 1, "llm_pos": 1, "is_disagreement": 0}, {"note_id": "16218902-DS-32", "subject_id": "16218902", "ground_truth": 0, "final_prediction": 0, "dx_found": 0, "meds_found": 0, "test_found": 0, "symptoms_found": 0, "total_score": 0, "confidence": "high", "contributing_agents": [], "reason": "Layer 1 — ClinText: no explicit AD symptoms identified in clinical text. Layer 2 — CogTest: no cognitive test scores documented. Layer 3 — Medication: no AD-specific medications found. Layer 4 — ICD: no AD/ADRD diagnostic codes found.", "is_correct": 1, "found_count": 0, "rule_pos": 0, "llm_pos": 0, "is_disagreement": 0}, {"note_id": "10165673-DS-4", "subject_id": "10165673", "ground_truth": 0, "final_prediction": 0, "dx_found": 0, "meds_found": 0, "test_found": 0, "symptoms_found": 0, "total_score": 0, "confidence": "high", "contributing_agents": [], "reason": "Layer 1 — ClinText: no explicit AD symptoms identified in clinical text. Layer 2 — CogTest: no cognitive test scores documented. Layer 3 — Medication: no AD-specific medications found. Layer 4 — ICD: no AD/ADRD diagnostic codes found.", "is_correct": 1, "found_count": 0, "rule_pos": 0, "llm_pos": 0, "is_disagreement": 0}, {"note_id": "18856567-DS-14", "subject_id": "18856567", "ground_truth": 1, "final_prediction": 1, "dx_found": 1, "meds_found": 0, "test_found": 0, "symptoms_found": 1, "total_score": 4, "confidence": "high", "contributing_agents": ["ClinTextAgent", "DiagnosisAgent"], "reason": "Layer 1 — ClinText (high conf): explicit AD symptoms found: \"At baseline she is oriented to self and would know the president, but would not know place or time.\". Layer 2 — CogTest: no cognitive test scores documented. Layer 3 — Medication: no AD-specific medications found. Layer 4 — ICD: matched codes (29420) corroborate diagnosis.", "is_correct": 1, "found_count": 2, "rule_pos": 1, "llm_pos": 1, "is_disagreement": 0}, {"note_id": "13877014-DS-17", "subject_id": "13877014", "ground_truth": 1, "final_prediction": 1, "dx_found": 1, "meds_found": 0, "test_found": 0, "symptoms_found": 1, "total_score": 4, "confidence": "medium", "contributing_agents": ["ClinTextAgent", "DiagnosisAgent"], "reason": "Layer 1 — ClinText (medium conf): explicit AD symptoms found: \"(A/Ox2 at baseline)\". Layer 2 — CogTest: no cognitive test scores documented. Layer 3 — Medication: no AD-specific medications found. Layer 4 — ICD: matched codes (F0280) corroborate diagnosis.", "is_correct": 1, "found_count": 2, "rule_pos": 1, "llm_pos": 1, "is_disagreement": 0}, {"note_id": "17505260-DS-17", "subject_id": "17505260", "ground_truth": 0, "final_prediction": 1, "dx_found": 1, "meds_found": 0, "test_found": 0, "symptoms_found": 0, "total_score": 1, "confidence": "low", "contributing_agents": ["DiagnosisAgent"], "reason": "Layer 1 — ClinText: no explicit AD symptoms identified in clinical text. Layer 2 — CogTest: no cognitive test scores documented. Layer 3 — Medication: no AD-specific medications found. Layer 4 — ICD: matched codes (29410) corroborate diagnosis.", "is_correct": 0, "found_count": 1, "rule_pos": 1, "llm_pos": 0, "is_disagreement": 1}, {"note_id": "19290730-DS-10", "subject_id": "19290730", "ground_truth": 1, "final_prediction": 1, "dx_found": 1, "meds_found": 0, "test_found": 0, "symptoms_found": 1, "total_score": 4, "confidence": "high", "contributing_agents": ["ClinTextAgent", "DiagnosisAgent"], "reason": "Layer 1 — ClinText (high conf): explicit AD symptoms found: \"Dementia\". Layer 2 — CogTest: no cognitive test scores documented. Layer 3 — Medication: no AD-specific medications found. Layer 4 — ICD: matched codes (29420) corroborate diagnosis.", "is_correct": 1, "found_count": 2, "rule_pos": 1, "llm_pos": 1, "is_disagreement": 0}, {"note_id": "18540421-DS-10", "subject_id": "18540421", "ground_truth": 1, "final_prediction": 1, "dx_found": 1, "meds_found": 0, "test_found": 0, "symptoms_found": 1, "total_score": 4, "confidence": "high", "contributing_agents": ["ClinTextAgent", "DiagnosisAgent"], "reason": "Layer 1 — ClinText (high conf): explicit AD symptoms found: \"h/o mild dementia\". Layer 2 — CogTest: no cognitive test scores documented. Layer 3 — Medication: no AD-specific medications found. Layer 4 — ICD: matched codes (2900) corroborate diagnosis.", "is_correct": 1, "found_count": 2, "rule_pos": 1, "llm_pos": 1, "is_disagreement": 0}, {"note_id": "19732355-DS-19", "subject_id": "19732355", "ground_truth": 0, "final_prediction": 0, "dx_found": 0, "meds_found": 0, "test_found": 0, "symptoms_found": 0, "total_score": 0, "confidence": "high", "contributing_agents": [], "reason": "Layer 1 — ClinText: no explicit AD symptoms identified in clinical text. Layer 2 — CogTest: no cognitive test scores documented. Layer 3 — Medication: no AD-specific medications found. Layer 4 — ICD: no AD/ADRD diagnostic codes found.", "is_correct": 1, "found_count": 0, "rule_pos": 0, "llm_pos": 0, "is_disagreement": 0}, {"note_id": "14437578-DS-14", "subject_id": "14437578", "ground_truth": 0, "final_prediction": 0, "dx_found": 0, "meds_found": 0, "test_found": 0, "symptoms_found": 0, "total_score": 0, "confidence": "high", "contributing_agents": [], "reason": "Layer 1 — ClinText: no explicit AD symptoms identified in clinical text. Layer 2 — CogTest: no cognitive test scores documented. Layer 3 — Medication: no AD-specific medications found. Layer 4 — ICD: no AD/ADRD diagnostic codes found.", "is_correct": 1, "found_count": 0, "rule_pos": 0, "llm_pos": 0, "is_disagreement": 0}, {"note_id": "12827865-DS-4", "subject_id": "12827865", "ground_truth": 0, "final_prediction": 0, "dx_found": 0, "meds_found": 0, "test_found": 0, "symptoms_found": 0, "total_score": 0, "confidence": "high", "contributing_agents": [], "reason": "Layer 1 — ClinText: no explicit AD symptoms identified in clinical text. Layer 2 — CogTest: no cognitive test scores documented. Layer 3 — Medication: no AD-specific medications found. Layer 4 — ICD: no AD/ADRD diagnostic codes found.", "is_correct": 1, "found_count": 0, "rule_pos": 0, "llm_pos": 0, "is_disagreement": 0}, {"note_id": "11963456-DS-18", "subject_id": "11963456", "ground_truth": 1, "final_prediction": 1, "dx_found": 1, "meds_found": 0, "test_found": 0, "symptoms_found": 1, "total_score": 4, "confidence": "medium", "contributing_agents": ["ClinTextAgent", "DiagnosisAgent"], "reason": "Layer 1 — ClinText (medium conf): explicit AD symptoms found: \"Dementia\". Layer 2 — CogTest: no cognitive test scores documented. Layer 3 — Medication: no AD-specific medications found. Layer 4 — ICD: matched codes (F0390) corroborate diagnosis.", "is_correct": 1, "found_count": 2, "rule_pos": 1, "llm_pos": 1, "is_disagreement": 0}, {"note_id": "10711330-DS-16", "subject_id": "10711330", "ground_truth": 0, "final_prediction": 0, "dx_found": 0, "meds_found": 0, "test_found": 0, "symptoms_found": 0, "total_score": 0, "confidence": "high", "contributing_agents": [], "reason": "Layer 1 — ClinText: no explicit AD symptoms identified in clinical text. Layer 2 — CogTest: no cognitive test scores documented. Layer 3 — Medication: no AD-specific medications found. Layer 4 — ICD: no AD/ADRD diagnostic codes found.", "is_correct": 1, "found_count": 0, "rule_pos": 0, "llm_pos": 0, "is_disagreement": 0}, {"note_id": "17797252-DS-39", "subject_id": "17797252", "ground_truth": 0, "final_prediction": 0, "dx_found": 0, "meds_found": 0, "test_found": 0, "symptoms_found": 0, "total_score": 0, "confidence": "high", "contributing_agents": [], "reason": "Layer 1 — ClinText: no explicit AD symptoms identified in clinical text. Layer 2 — CogTest: no cognitive test scores documented. Layer 3 — Medication: no AD-specific medications found. Layer 4 — ICD: no AD/ADRD diagnostic codes found.", "is_correct": 1, "found_count": 0, "rule_pos": 0, "llm_pos": 0, "is_disagreement": 0}, {"note_id": "10272398-DS-16", "subject_id": "10272398", "ground_truth": 0, "final_prediction": 0, "dx_found": 0, "meds_found": 0, "test_found": 0, "symptoms_found": 0, "total_score": 0, "confidence": "high", "contributing_agents": [], "reason": "Layer 1 — ClinText: no explicit AD symptoms identified in clinical text. Layer 2 — CogTest: no cognitive test scores documented. Layer 3 — Medication: no AD-specific medications found. Layer 4 — ICD: no AD/ADRD diagnostic codes found.", "is_correct": 1, "found_count": 0, "rule_pos": 0, "llm_pos": 0, "is_disagreement": 0}, {"note_id": "19041692-DS-5", "subject_id": "19041692", "ground_truth": 1, "final_prediction": 1, "dx_found": 1, "meds_found": 0, "test_found": 0, "symptoms_found": 1, "total_score": 4, "confidence": "medium", "contributing_agents": ["ClinTextAgent", "DiagnosisAgent"], "reason": "Layer 1 — ClinText (medium conf): explicit AD symptoms found: \"Mild dementia\". Layer 2 — CogTest: no cognitive test scores documented. Layer 3 — Medication: no AD-specific medications found. Layer 4 — ICD: matched codes (29420) corroborate diagnosis.", "is_correct": 1, "found_count": 2, "rule_pos": 1, "llm_pos": 1, "is_disagreement": 0}, {"note_id": "12896334-DS-4", "subject_id": "12896334", "ground_truth": 0, "final_prediction": 0, "dx_found": 0, "meds_found": 0, "test_found": 0, "symptoms_found": 0, "total_score": 0, "confidence": "high", "contributing_agents": [], "reason": "Layer 1 — ClinText: no explicit AD symptoms identified in clinical text. Layer 2 — CogTest: no cognitive test scores documented. Layer 3 — Medication: no AD-specific medications found. Layer 4 — ICD: no AD/ADRD diagnostic codes found.", "is_correct": 1, "found_count": 0, "rule_pos": 0, "llm_pos": 0, "is_disagreement": 0}, {"note_id": "17396168-DS-15", "subject_id": "17396168", "ground_truth": 1, "final_prediction": 1, "dx_found": 1, "meds_found": 1, "test_found": 0, "symptoms_found": 1, "total_score": 7, "confidence": "high", "contributing_agents": ["ClinTextAgent", "MedicationAgent", "DiagnosisAgent"], "reason": "Layer 1 — ClinText (high conf): explicit AD symptoms found: \"concentration and gait have been worsening\". Layer 2 — CogTest: no cognitive test scores documented. Layer 3 — Medication: donepezil, rivastigmine prescribed [source: text] — confirms clinical management of AD. Layer 4 — ICD: matched codes (3310, 29410) corroborate diagnosis.", "is_correct": 1, "found_count": 3, "rule_pos": 1, "llm_pos": 1, "is_disagreement": 0}, {"note_id": "15328282-DS-16", "subject_id": "15328282", "ground_truth": 0, "final_prediction": 0, "dx_found": 0, "meds_found": 0, "test_found": 0, "symptoms_found": 0, "total_score": 0, "confidence": "high", "contributing_agents": [], "reason": "Layer 1 — ClinText: no explicit AD symptoms identified in clinical text. Layer 2 — CogTest: no cognitive test scores documented. Layer 3 — Medication: no AD-specific medications found. Layer 4 — ICD: no AD/ADRD diagnostic codes found.", "is_correct": 1, "found_count": 0, "rule_pos": 0, "llm_pos": 0, "is_disagreement": 0}, {"note_id": "14030143-DS-15", "subject_id": "14030143", "ground_truth": 0, "final_prediction": 0, "dx_found": 0, "meds_found": 0, "test_found": 0, "symptoms_found": 0, "total_score": 0, "confidence": "high", "contributing_agents": [], "reason": "Layer 1 — ClinText: no explicit AD symptoms identified in clinical text. Layer 2 — CogTest: no cognitive test scores documented. Layer 3 — Medication: no AD-specific medications found. Layer 4 — ICD: no AD/ADRD diagnostic codes found.", "is_correct": 1, "found_count": 0, "rule_pos": 0, "llm_pos": 0, "is_disagreement": 0}, {"note_id": "14746989-DS-22", "subject_id": "14746989", "ground_truth": 1, "final_prediction": 1, "dx_found": 1, "meds_found": 0, "test_found": 0, "symptoms_found": 1, "total_score": 4, "confidence": "high", "contributing_agents": ["ClinTextAgent", "DiagnosisAgent"], "reason": "Layer 1 — ClinText (high conf): explicit AD symptoms found: \"she was having difficulty producing words, with frequent word substitutions.\". Layer 2 — CogTest: no cognitive test scores documented. Layer 3 — Medication: no AD-specific medications found. Layer 4 — ICD: matched codes (3310, 29410) corroborate diagnosis.", "is_correct": 1, "found_count": 2, "rule_pos": 1, "llm_pos": 1, "is_disagreement": 0}, {"note_id": "18663902-DS-18", "subject_id": "18663902", "ground_truth": 1, "final_prediction": 1, "dx_found": 1, "meds_found": 0, "test_found": 0, "symptoms_found": 1, "total_score": 4, "confidence": "high", "contributing_agents": ["ClinTextAgent", "DiagnosisAgent"], "reason": "Layer 1 — ClinText (high conf): explicit AD symptoms found: \"chronic change in mental status\". Layer 2 — CogTest: no cognitive test scores documented. Layer 3 — Medication: no AD-specific medications found. Layer 4 — ICD: matched codes (29420) corroborate diagnosis.", "is_correct": 1, "found_count": 2, "rule_pos": 1, "llm_pos": 1, "is_disagreement": 0}, {"note_id": "11966835-DS-2", "subject_id": "11966835", "ground_truth": 1, "final_prediction": 1, "dx_found": 1, "meds_found": 0, "test_found": 0, "symptoms_found": 1, "total_score": 4, "confidence": "high", "contributing_agents": ["ClinTextAgent", "DiagnosisAgent"], "reason": "Layer 1 — ClinText (high conf): explicit AD symptoms found: \"memory loss\". Layer 2 — CogTest: no cognitive test scores documented. Layer 3 — Medication: no AD-specific medications found. Layer 4 — ICD: matched codes (29420) corroborate diagnosis.", "is_correct": 1, "found_count": 2, "rule_pos": 1, "llm_pos": 1, "is_disagreement": 0}, {"note_id": "11918851-DS-3", "subject_id": "11918851", "ground_truth": 1, "final_prediction": 1, "dx_found": 1, "meds_found": 0, "test_found": 0, "symptoms_found": 0, "total_score": 1, "confidence": "low", "contributing_agents": ["DiagnosisAgent"], "reason": "Layer 1 — ClinText: no explicit AD symptoms identified in clinical text. Layer 2 — CogTest: no cognitive test scores documented. Layer 3 — Medication: no AD-specific medications found. Layer 4 — ICD: matched codes (29420) corroborate diagnosis.", "is_correct": 1, "found_count": 1, "rule_pos": 1, "llm_pos": 0, "is_disagreement": 1}, {"note_id": "15325143-DS-22", "subject_id": "15325143", "ground_truth": 0, "final_prediction": 1, "dx_found": 1, "meds_found": 0, "test_found": 0, "symptoms_found": 1, "total_score": 4, "confidence": "high", "contributing_agents": ["ClinTextAgent", "DiagnosisAgent"], "reason": "Layer 1 — ClinText (high conf): explicit AD symptoms found: \"He was unable to recall his medications\". Layer 2 — CogTest: no cognitive test scores documented. Layer 3 — Medication: no AD-specific medications found. Layer 4 — ICD: matched codes (G312) corroborate diagnosis.", "is_correct": 0, "found_count": 2, "rule_pos": 1, "llm_pos": 1, "is_disagreement": 0}, {"note_id": "11816117-DS-21", "subject_id": "11816117", "ground_truth": 1, "final_prediction": 1, "dx_found": 1, "meds_found": 0, "test_found": 0, "symptoms_found": 1, "total_score": 4, "confidence": "high", "contributing_agents": ["ClinTextAgent", "DiagnosisAgent"], "reason": "Layer 1 — ClinText (high conf): explicit AD symptoms found: \"worsening confusion\". Layer 2 — CogTest: no cognitive test scores documented. Layer 3 — Medication: no AD-specific medications found. Layer 4 — ICD: matched codes (G309, F0280) corroborate diagnosis.", "is_correct": 1, "found_count": 2, "rule_pos": 1, "llm_pos": 1, "is_disagreement": 0}, {"note_id": "15226340-DS-4", "subject_id": "15226340", "ground_truth": 1, "final_prediction": 1, "dx_found": 1, "meds_found": 0, "test_found": 0, "symptoms_found": 1, "total_score": 4, "confidence": "high", "contributing_agents": ["ClinTextAgent", "DiagnosisAgent"], "reason": "Layer 1 — ClinText (high conf): explicit AD symptoms found: \"She is normal quite confused\". Layer 2 — CogTest: no cognitive test scores documented. Layer 3 — Medication: no AD-specific medications found. Layer 4 — ICD: matched codes (3310, 29411) corroborate diagnosis.", "is_correct": 1, "found_count": 2, "rule_pos": 1, "llm_pos": 1, "is_disagreement": 0}, {"note_id": "16356172-DS-2", "subject_id": "16356172", "ground_truth": 0, "final_prediction": 1, "dx_found": 1, "meds_found": 0, "test_found": 0, "symptoms_found": 0, "total_score": 1, "confidence": "low", "contributing_agents": ["DiagnosisAgent"], "reason": "Layer 1 — ClinText: no explicit AD symptoms identified in clinical text. Layer 2 — CogTest: no cognitive test scores documented. Layer 3 — Medication: no AD-specific medications found. Layer 4 — ICD: matched codes (29420) corroborate diagnosis.", "is_correct": 0, "found_count": 1, "rule_pos": 1, "llm_pos": 0, "is_disagreement": 1}, {"note_id": "13143465-DS-14", "subject_id": "13143465", "ground_truth": 0, "final_prediction": 0, "dx_found": 0, "meds_found": 0, "test_found": 0, "symptoms_found": 0, "total_score": 0, "confidence": "high", "contributing_agents": [], "reason": "Layer 1 — ClinText: no explicit AD symptoms identified in clinical text. Layer 2 — CogTest: no cognitive test scores documented. Layer 3 — Medication: no AD-specific medications found. Layer 4 — ICD: no AD/ADRD diagnostic codes found.", "is_correct": 1, "found_count": 0, "rule_pos": 0, "llm_pos": 0, "is_disagreement": 0}, {"note_id": "14164080-DS-12", "subject_id": "14164080", "ground_truth": 1, "final_prediction": 1, "dx_found": 1, "meds_found": 0, "test_found": 0, "symptoms_found": 1, "total_score": 4, "confidence": "medium", "contributing_agents": ["ClinTextAgent", "DiagnosisAgent"], "reason": "Layer 1 — ClinText (medium conf): explicit AD symptoms found: \"Cognitive disorder\". Layer 2 — CogTest: no cognitive test scores documented. Layer 3 — Medication: no AD-specific medications found. Layer 4 — ICD: matched codes (29420) corroborate diagnosis.", "is_correct": 1, "found_count": 2, "rule_pos": 1, "llm_pos": 1, "is_disagreement": 0}, {"note_id": "16091399-DS-16", "subject_id": "16091399", "ground_truth": 0, "final_prediction": 0, "dx_found": 0, "meds_found": 0, "test_found": 0, "symptoms_found": 0, "total_score": 0, "confidence": "high", "contributing_agents": [], "reason": "Layer 1 — ClinText: no explicit AD symptoms identified in clinical text. Layer 2 — CogTest: no cognitive test scores documented. Layer 3 — Medication: no AD-specific medications found. Layer 4 — ICD: no AD/ADRD diagnostic codes found.", "is_correct": 1, "found_count": 0, "rule_pos": 0, "llm_pos": 0, "is_disagreement": 0}, {"note_id": "14728164-DS-10", "subject_id": "14728164", "ground_truth": 1, "final_prediction": 1, "dx_found": 1, "meds_found": 0, "test_found": 0, "symptoms_found": 1, "total_score": 4, "confidence": "high", "contributing_agents": ["ClinTextAgent", "DiagnosisAgent"], "reason": "Layer 1 — ClinText (high conf): explicit AD symptoms found: \"history of dementia\". Layer 2 — CogTest: no cognitive test scores documented. Layer 3 — Medication: no AD-specific medications found. Layer 4 — ICD: matched codes (G3183, F0280) corroborate diagnosis.", "is_correct": 1, "found_count": 2, "rule_pos": 1, "llm_pos": 1, "is_disagreement": 0}, {"note_id": "10426922-DS-19", "subject_id": "10426922", "ground_truth": 1, "final_prediction": 1, "dx_found": 1, "meds_found": 0, "test_found": 0, "symptoms_found": 1, "total_score": 4, "confidence": "high", "contributing_agents": ["ClinTextAgent", "DiagnosisAgent"], "reason": "Layer 1 — ClinText (high conf): explicit AD symptoms found: \"cognitive deficits\". Layer 2 — CogTest: no cognitive test scores documented. Layer 3 — Medication: no AD-specific medications found. Layer 4 — ICD: matched codes (29420) corroborate diagnosis.", "is_correct": 1, "found_count": 2, "rule_pos": 1, "llm_pos": 1, "is_disagreement": 0}, {"note_id": "18338919-DS-6", "subject_id": "18338919", "ground_truth": 1, "final_prediction": 1, "dx_found": 1, "meds_found": 1, "test_found": 0, "symptoms_found": 1, "total_score": 7, "confidence": "high", "contributing_agents": ["ClinTextAgent", "MedicationAgent", "DiagnosisAgent"], "reason": "Layer 1 — ClinText (high conf): explicit AD symptoms found: \"per family, has had ... an increase in her confusion.\". Layer 2 — CogTest: no cognitive test scores documented. Layer 3 — Medication: memantine prescribed [source: structured] — confirms clinical management of AD. Layer 4 — ICD: matched codes (29410) corroborate diagnosis.", "is_correct": 1, "found_count": 3, "rule_pos": 1, "llm_pos": 1, "is_disagreement": 0}, {"note_id": "19428226-DS-11", "subject_id": "19428226", "ground_truth": 0, "final_prediction": 0, "dx_found": 0, "meds_found": 0, "test_found": 0, "symptoms_found": 0, "total_score": 0, "confidence": "high", "contributing_agents": [], "reason": "Layer 1 — ClinText: no explicit AD symptoms identified in clinical text. Layer 2 — CogTest: no cognitive test scores documented. Layer 3 — Medication: no AD-specific medications found. Layer 4 — ICD: no AD/ADRD diagnostic codes found.", "is_correct": 1, "found_count": 0, "rule_pos": 0, "llm_pos": 0, "is_disagreement": 0}, {"note_id": "10251379-DS-11", "subject_id": "10251379", "ground_truth": 1, "final_prediction": 1, "dx_found": 1, "meds_found": 0, "test_found": 0, "symptoms_found": 1, "total_score": 4, "confidence": "high", "contributing_agents": ["ClinTextAgent", "DiagnosisAgent"], "reason": "Layer 1 — ClinText (high conf): explicit AD symptoms found: \"Patient cannot provide any history given baseline dementia.\". Layer 2 — CogTest: no cognitive test scores documented. Layer 3 — Medication: no AD-specific medications found. Layer 4 — ICD: matched codes (3310, 29410) corroborate diagnosis.", "is_correct": 1, "found_count": 2, "rule_pos": 1, "llm_pos": 1, "is_disagreement": 0}, {"note_id": "10922531-DS-15", "subject_id": "10922531", "ground_truth": 1, "final_prediction": 1, "dx_found": 1, "meds_found": 0, "test_found": 0, "symptoms_found": 1, "total_score": 4, "confidence": "high", "contributing_agents": ["ClinTextAgent", "DiagnosisAgent"], "reason": "Layer 1 — ClinText (high conf): explicit AD symptoms found: \"hallucinations\". Layer 2 — CogTest: no cognitive test scores documented. Layer 3 — Medication: no AD-specific medications found. Layer 4 — ICD: matched codes (F0390) corroborate diagnosis.", "is_correct": 1, "found_count": 2, "rule_pos": 1, "llm_pos": 1, "is_disagreement": 0}, {"note_id": "15535729-DS-17", "subject_id": "15535729", "ground_truth": 0, "final_prediction": 0, "dx_found": 0, "meds_found": 0, "test_found": 0, "symptoms_found": 0, "total_score": 0, "confidence": "high", "contributing_agents": [], "reason": "Layer 1 — ClinText: no explicit AD symptoms identified in clinical text. Layer 2 — CogTest: no cognitive test scores documented. Layer 3 — Medication: no AD-specific medications found. Layer 4 — ICD: no AD/ADRD diagnostic codes found.", "is_correct": 1, "found_count": 0, "rule_pos": 0, "llm_pos": 0, "is_disagreement": 0}, {"note_id": "18136313-DS-2", "subject_id": "18136313", "ground_truth": 0, "final_prediction": 0, "dx_found": 0, "meds_found": 0, "test_found": 0, "symptoms_found": 0, "total_score": 0, "confidence": "high", "contributing_agents": [], "reason": "Layer 1 — ClinText: no explicit AD symptoms identified in clinical text. Layer 2 — CogTest: no cognitive test scores documented. Layer 3 — Medication: no AD-specific medications found. Layer 4 — ICD: no AD/ADRD diagnostic codes found.", "is_correct": 1, "found_count": 0, "rule_pos": 0, "llm_pos": 0, "is_disagreement": 0}, {"note_id": "18877270-DS-21", "subject_id": "18877270", "ground_truth": 0, "final_prediction": 0, "dx_found": 0, "meds_found": 0, "test_found": 0, "symptoms_found": 0, "total_score": 0, "confidence": "high", "contributing_agents": [], "reason": "Layer 1 — ClinText: no explicit AD symptoms identified in clinical text. Layer 2 — CogTest: no cognitive test scores documented. Layer 3 — Medication: no AD-specific medications found. Layer 4 — ICD: no AD/ADRD diagnostic codes found.", "is_correct": 1, "found_count": 0, "rule_pos": 0, "llm_pos": 0, "is_disagreement": 0}, {"note_id": "18411232-DS-10", "subject_id": "18411232", "ground_truth": 1, "final_prediction": 1, "dx_found": 1, "meds_found": 0, "test_found": 0, "symptoms_found": 1, "total_score": 4, "confidence": "high", "contributing_agents": ["ClinTextAgent", "DiagnosisAgent"], "reason": "Layer 1 — ClinText (high conf): explicit AD symptoms found: \"memory loss\". Layer 2 — CogTest: no cognitive test scores documented. Layer 3 — Medication: no AD-specific medications found. Layer 4 — ICD: matched codes (33182, 29410) corroborate diagnosis.", "is_correct": 1, "found_count": 2, "rule_pos": 1, "llm_pos": 1, "is_disagreement": 0}, {"note_id": "11443963-DS-13", "subject_id": "11443963", "ground_truth": 1, "final_prediction": 1, "dx_found": 1, "meds_found": 0, "test_found": 0, "symptoms_found": 1, "total_score": 4, "confidence": "high", "contributing_agents": ["ClinTextAgent", "DiagnosisAgent"], "reason": "Layer 1 — ClinText (high conf): explicit AD symptoms found: \"Extensive ___ disease with ___ body dementia\". Layer 2 — CogTest: no cognitive test scores documented. Layer 3 — Medication: no AD-specific medications found. Layer 4 — ICD: matched codes (F0280) corroborate diagnosis.", "is_correct": 1, "found_count": 2, "rule_pos": 1, "llm_pos": 1, "is_disagreement": 0}, {"note_id": "18371833-DS-19", "subject_id": "18371833", "ground_truth": 0, "final_prediction": 0, "dx_found": 0, "meds_found": 0, "test_found": 0, "symptoms_found": 0, "total_score": 0, "confidence": "high", "contributing_agents": [], "reason": "Layer 1 — ClinText: no explicit AD symptoms identified in clinical text. Layer 2 — CogTest: no cognitive test scores documented. Layer 3 — Medication: no AD-specific medications found. Layer 4 — ICD: no AD/ADRD diagnostic codes found.", "is_correct": 1, "found_count": 0, "rule_pos": 0, "llm_pos": 0, "is_disagreement": 0}, {"note_id": "12695987-DS-18", "subject_id": "12695987", "ground_truth": 0, "final_prediction": 0, "dx_found": 0, "meds_found": 0, "test_found": 0, "symptoms_found": 0, "total_score": 0, "confidence": "high", "contributing_agents": [], "reason": "Layer 1 — ClinText: no explicit AD symptoms identified in clinical text. Layer 2 — CogTest: no cognitive test scores documented. Layer 3 — Medication: no AD-specific medications found. Layer 4 — ICD: no AD/ADRD diagnostic codes found.", "is_correct": 1, "found_count": 0, "rule_pos": 0, "llm_pos": 0, "is_disagreement": 0}, {"note_id": "19731136-DS-8", "subject_id": "19731136", "ground_truth": 1, "final_prediction": 1, "dx_found": 1, "meds_found": 0, "test_found": 0, "symptoms_found": 1, "total_score": 4, "confidence": "medium", "contributing_agents": ["ClinTextAgent", "DiagnosisAgent"], "reason": "Layer 1 — ClinText (medium conf): explicit AD symptoms found: \"Vascular dementia\". Layer 2 — CogTest: no cognitive test scores documented. Layer 3 — Medication: no AD-specific medications found. Layer 4 — ICD: matched codes (29040) corroborate diagnosis.", "is_correct": 1, "found_count": 2, "rule_pos": 1, "llm_pos": 1, "is_disagreement": 0}, {"note_id": "15782806-DS-7", "subject_id": "15782806", "ground_truth": 1, "final_prediction": 1, "dx_found": 1, "meds_found": 0, "test_found": 0, "symptoms_found": 1, "total_score": 4, "confidence": "high", "contributing_agents": ["ClinTextAgent", "DiagnosisAgent"], "reason": "Layer 1 — ClinText (high conf): explicit AD symptoms found: \"increased concern for cognitive dysfunction\". Layer 2 — CogTest: no cognitive test scores documented. Layer 3 — Medication: no AD-specific medications found. Layer 4 — ICD: matched codes (3310) corroborate diagnosis.", "is_correct": 1, "found_count": 2, "rule_pos": 1, "llm_pos": 1, "is_disagreement": 0}];
+const METRICS       = {"accuracy": "0.9425", "sensitivity": "1.0000", "ppv": "0.9138", "auc": "0.9265", "total": 87, "correct": 82, "tp": 53, "fp": 5, "fn": 0, "tn": 29, "tp_pct": 60.9, "fp_pct": 5.7, "fn_pct": 0.0, "tn_pct": 33.3};
+const AGENT_DEFS    = [{"key": "symptoms_found", "name": "ClinTextAgent", "label": "L1 · Clinical Text", "agent_type": "LLM-based (Gemini 2.5 Flash)", "score": 3, "method": "Gemini 2.5 Flash scans the first 3000 characters for explicit AD/ADRD clinical evidence: memory loss, disorientation, family-reported decline, functional impairment, behavioural change, language difficulty.", "found_msg": "Explicit AD/ADRD symptoms identified in the clinical text. High confidence = ≥2 distinct evidence categories. Score contribution: +3.", "not_found_msg": "No explicit AD/ADRD symptoms found in the note excerpt. Score contribution: +0."}, {"key": "test_found", "name": "CogTestAgent", "label": "L2 · Cognitive Test", "agent_type": "LLM-based (Gemini 2.5 Flash)", "score": 2, "method": "Gemini 2.5 Flash extracts MMSE, MoCA, Mini-Cog, CDR, ADAS-Cog scores and applies clinical thresholds (MMSE<24, MoCA<26, Mini-Cog≤2, CDR≥0.5) to determine if impairment is indicated.", "found_msg": "Cognitive test scores found with impairment indicated. Objective numerical evidence of cognitive decline. Score contribution: +2.", "not_found_msg": "No cognitive test scores found, or scores within normal range. Score contribution: +0."}, {"key": "meds_found", "name": "MedicationAgent", "label": "L3 · Medications", "agent_type": "Hybrid (structured + LLM text)", "score": 3, "method": "Phase 1: checks structured medication flag columns (donepezil, memantine, tacrine, rivastigmine, galantamine). Phase 2: if negative, Gemini scans free text for AD drug mentions including brand names.", "found_msg": "AD-specific medication prescribed — confirms clinical management of AD. Strong signal: clinician has already made the diagnosis. Score contribution: +3.", "not_found_msg": "No AD medications found in structured columns or clinical text. Score contribution: +0."}, {"key": "dx_found", "name": "DiagnosisAgent", "label": "L4 · Diagnosis ICD", "agent_type": "Rule-based", "score": 1, "method": "Scans the all_icd_codes field against the AD/ADRD ICD whitelist: G30, G300, G301, G308, G309, F02, F020, F0280, F0281, G31, G310, G311, G318. Prefix-match is used (e.g. G309 matches G30).", "found_msg": "AD/ADRD-related ICD codes were matched in the diagnosis record. These codes are clinically assigned after diagnostic workup — a high-specificity signal. Score contribution: +3.", "not_found_msg": "No AD/ADRD ICD codes found. The patient may lack a formal diagnosis, codes may be in an untested variant format, or the condition is described narratively rather than coded. Score contribution: +0."}];
+const AGENT_CONTRIB = [{"name": "ClinTextAgent", "label": "L1 · Clinical Text", "flag_rate": 56.3, "precision": 95.9, "flagged_count": 49}, {"name": "CogTestAgent", "label": "L2 · Cognitive Test", "flag_rate": 0.0, "precision": 0, "flagged_count": 0}, {"name": "MedicationAgent", "label": "L3 · Medications", "flag_rate": 10.3, "precision": 100.0, "flagged_count": 9}, {"name": "DiagnosisAgent", "label": "L4 · Diagnosis ICD", "flag_rate": 66.7, "precision": 91.4, "flagged_count": 58}];
+const DISAGREEMENT  = {"total": 9, "accuracy": 66.7, "cases": [{"note_id": "10404360-DS-25", "subject_id": "10404360", "rule_pos": 1, "llm_pos": 0, "dx_found": 1, "meds_found": 0, "test_found": 0, "symptoms_found": 0, "final_prediction": 1, "ground_truth": 1, "is_correct": 1, "confidence": "low"}, {"note_id": "15314851-DS-18", "subject_id": "15314851", "rule_pos": 1, "llm_pos": 0, "dx_found": 1, "meds_found": 0, "test_found": 0, "symptoms_found": 0, "final_prediction": 1, "ground_truth": 1, "is_correct": 1, "confidence": "low"}, {"note_id": "14477122-DS-14", "subject_id": "14477122", "rule_pos": 1, "llm_pos": 0, "dx_found": 1, "meds_found": 0, "test_found": 0, "symptoms_found": 0, "final_prediction": 1, "ground_truth": 1, "is_correct": 1, "confidence": "low"}, {"note_id": "11837605-DS-24", "subject_id": "11837605", "rule_pos": 1, "llm_pos": 0, "dx_found": 1, "meds_found": 0, "test_found": 0, "symptoms_found": 0, "final_prediction": 1, "ground_truth": 1, "is_correct": 1, "confidence": "low"}, {"note_id": "13545585-DS-16", "subject_id": "13545585", "rule_pos": 1, "llm_pos": 0, "dx_found": 1, "meds_found": 0, "test_found": 0, "symptoms_found": 0, "final_prediction": 1, "ground_truth": 1, "is_correct": 1, "confidence": "low"}, {"note_id": "15763754-DS-13", "subject_id": "15763754", "rule_pos": 1, "llm_pos": 0, "dx_found": 1, "meds_found": 0, "test_found": 0, "symptoms_found": 0, "final_prediction": 1, "ground_truth": 0, "is_correct": 0, "confidence": "low"}, {"note_id": "17505260-DS-17", "subject_id": "17505260", "rule_pos": 1, "llm_pos": 0, "dx_found": 1, "meds_found": 0, "test_found": 0, "symptoms_found": 0, "final_prediction": 1, "ground_truth": 0, "is_correct": 0, "confidence": "low"}, {"note_id": "11918851-DS-3", "subject_id": "11918851", "rule_pos": 1, "llm_pos": 0, "dx_found": 1, "meds_found": 0, "test_found": 0, "symptoms_found": 0, "final_prediction": 1, "ground_truth": 1, "is_correct": 1, "confidence": "low"}, {"note_id": "16356172-DS-2", "subject_id": "16356172", "rule_pos": 1, "llm_pos": 0, "dx_found": 1, "meds_found": 0, "test_found": 0, "symptoms_found": 0, "final_prediction": 1, "ground_truth": 0, "is_correct": 0, "confidence": "low"}]};
+const COMPARISON    = [{"label": "Horizontal (C)", "accuracy": "0.9425", "auc": "0.9265", "sensitivity": "1.0000", "ppv": "0.9138", "total": 87}];
+const FEATURED_IDS  = ["18922134-DS-10", "16059144-DS-24", "18778050-DS-5", "15763754-DS-13", "12596965-DS-9", "10404360-DS-25"];
+
+// ── State ──────────────────────────────────────────────────────────────────
+const PAGE_SIZE = 20;
+let currentFilter = 'featured';
+let currentSearch = '';
+let visibleCount  = 6;
+
+// ── Utility ────────────────────────────────────────────────────────────────
+function esc(str) {
+  return String(str)
+    .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+    .replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+}
+
+function confColor(c) {
+  return {high:'#2e7d32', medium:'#e65100', low:'#c62828'}[c] || '#78909c';
+}
+
+// ── Filter Logic ───────────────────────────────────────────────────────────
+function getFiltered() {
+  let rows = [...DATA];
+  const q = currentSearch.trim().toLowerCase();
+  if (q) rows = rows.filter(r => r.note_id.toLowerCase().includes(q));
+
+  switch (currentFilter) {
+    case 'featured': return rows.filter(r => FEATURED_IDS.includes(r.note_id));
+    case 'correct':  return rows.filter(r => r.is_correct);
+    case 'wrong':    return rows.filter(r => !r.is_correct);
+    case 'medium':   return rows.filter(r => r.confidence === 'medium');
+    case 'disagree': return rows.filter(r => r.is_disagreement);
+    default:         return rows;
+  }
+}
+
+// ── Card Rendering ─────────────────────────────────────────────────────────
+function buildBadge(row, agDef) {
+  const found = row[agDef.key];
+  const cls   = found ? 'badge-yes' : 'badge-no';
+  const icon  = found ? '&#10003;' : '&#10007;';
+  return `<span class="badge ${cls} badge-agent"
+    data-note-id="${esc(row.note_id)}" data-agent-key="${esc(agDef.key)}"
+    title="Click for details">${icon} ${esc(agDef.label)} <span class="badge-info">&#9432;</span></span>`;
+}
+
+function buildCard(row) {
+  const isCorrect = row.is_correct;
+  const gt    = row.ground_truth === 1 ? 'AD/ADRD+' : 'No ADRD';
+  const pred  = row.final_prediction === 1 ? 'AD/ADRD+' : 'No ADRD';
+  const barPct = Math.round(row.found_count / 4 * 100);
+  const contribs = (row.contributing_agents || [])
+    .map(a => `<span class="contrib-chip">${esc(a)}</span>`).join('');
+
+  const badges = AGENT_DEFS.map(a => buildBadge(row, a)).join('');
+
+  return `
+<div class="card" data-note-id="${esc(row.note_id)}">
+  <div class="card-top">
+    <div class="card-header">
+      <span class="card-title">Note ID: ${esc(row.note_id)}</span>
+      <span class="card-sub">Subject: ${esc(row.subject_id)}</span>
+      <span class="badge ${isCorrect ? 'result-correct' : 'result-wrong'}">
+        ${isCorrect ? '&#10003; CORRECT' : '&#10007; WRONG'}
+      </span>
+    </div>
+    <div class="agent-badges">${badges}</div>
+    <div class="bar-wrap">
+      <span class="bar-label">Evidence Strength (${row.found_count}/4 agents positive)</span>
+      <div class="bar-bg"><div class="bar-fill" style="width:${barPct}%"></div></div>
+    </div>
+    <div class="score-row">
+      <span>Total Score: <strong>${row.total_score}/9</strong></span>
+      <span style="color:${confColor(row.confidence)}">
+        Confidence: <strong>${row.confidence.toUpperCase()}</strong>
+      </span>
+    </div>
+    <div class="pred-row">
+      <span>Prediction: <strong class="${row.final_prediction===1?'pred-pos':'pred-neg'}">${pred}</strong></span>
+      <span>Ground Truth: <strong>${gt}</strong></span>
+    </div>
+  </div>
+  <button class="toggle-btn" data-note-id="${esc(row.note_id)}">
+    <span class="toggle-arrow">&#9660;</span>&nbsp;Details
+  </button>
+  <div class="card-detail" id="detail-${esc(row.note_id)}">
+    <div class="reason-box">${esc(row.reason)}</div>
+    ${contribs ? `<div style="margin-top:8px;font-size:.78rem;color:#78909c;margin-bottom:4px">Contributing agents:</div>
+    <div class="contrib-list">${contribs}</div>` : ''}
+    ${row.is_disagreement ? `<div style="margin-top:10px;font-size:.78rem;padding:6px 10px;background:#fff3e0;border-radius:6px;color:#e65100;border-left:3px solid #ff9800">
+      &#9888; Agent Disagreement: rule-based and LLM agents gave conflicting signals
+    </div>` : ''}
+  </div>
+</div>`;
+}
+
+function renderCards() {
+  const filtered = getFiltered();
+  const grid     = document.getElementById('cards-grid');
+  const countLbl = document.getElementById('count-label');
+  const moreWrap = document.getElementById('load-more-wrap');
+  const moreBtn  = document.getElementById('load-more-btn');
+
+  if (filtered.length === 0) {
+    grid.innerHTML = '<div class="empty-state">No records match the current filter.</div>';
+    countLbl.textContent = 'Showing 0 of 0';
+    moreWrap.style.display = 'none';
+    return;
+  }
+
+  const isFeatured = (currentFilter === 'featured' && !currentSearch.trim());
+  const showCount  = isFeatured ? filtered.length : Math.min(visibleCount, filtered.length);
+  const displayed  = filtered.slice(0, showCount);
+
+  grid.innerHTML = displayed.map(buildCard).join('');
+  countLbl.textContent = `Showing ${displayed.length} of ${filtered.length} records`;
+
+  if (!isFeatured && filtered.length > showCount) {
+    moreWrap.style.display = 'block';
+    moreBtn.disabled = false;
+    moreBtn.textContent = `Load More (${Math.min(PAGE_SIZE, filtered.length - showCount)} more)`;
+  } else {
+    moreWrap.style.display = 'none';
+  }
+}
+
+// ── Popup Logic ────────────────────────────────────────────────────────────
+function showPopup(noteId, agentKey) {
+  const row     = DATA.find(r => r.note_id === noteId);
+  const agDef   = AGENT_DEFS.find(a => a.key === agentKey);
+  if (!row || !agDef) return;
+
+  const found      = row[agentKey];
+  const scoreAdd   = found ? agDef.score : 0;
+  const isRule     = agDef.agent_type.toLowerCase().includes('rule');
+  const typeClass  = isRule ? 'type-rule' : 'type-llm';
+  const icon       = found ? '&#9989;' : '&#10060;';
+  const statusCls  = found ? 'found' : 'notfound';
+  const statusTxt  = found ? 'Evidence Found' : 'No Evidence Found';
+  const evidenceTxt = esc(found ? agDef.found_msg : agDef.not_found_msg);
+
+  document.getElementById('popup-icon').innerHTML    = icon;
+  document.getElementById('popup-title').textContent = agDef.name;
+  const typeTag = document.getElementById('popup-type-tag');
+  typeTag.textContent  = agDef.agent_type;
+  typeTag.className    = `popup-type-tag ${typeClass}`;
+
+  document.getElementById('popup-body').innerHTML = `
+    <div class="popup-status ${statusCls}">${icon}&nbsp;${statusTxt}
+      &nbsp;<span class="popup-score-chip">+${scoreAdd} pts</span>
+    </div>
+    <div class="popup-section">
+      <div class="popup-section-title">Methodology</div>
+      <div class="popup-section-body">${esc(agDef.method)}</div>
+    </div>
+    <div class="popup-section">
+      <div class="popup-section-title">Finding</div>
+      <div class="popup-section-body">${evidenceTxt}</div>
+    </div>
+    <div class="popup-section">
+      <div class="popup-section-title">Context &mdash; Note ${esc(noteId)}</div>
+      <div class="popup-section-body">
+        Overall score: <strong>${row.total_score}/9</strong> &nbsp;&bull;&nbsp;
+        Confidence: <strong style="color:${confColor(row.confidence)}">${row.confidence.toUpperCase()}</strong><br>
+        Final prediction: <strong>${row.final_prediction===1?'AD/ADRD+':'No ADRD'}</strong> &nbsp;&bull;&nbsp;
+        Ground truth: <strong>${row.ground_truth===1?'AD/ADRD+':'No ADRD'}</strong>
+        ${row.is_disagreement ? '<br><span style="color:#e65100;font-size:.8rem">&#9888; Rule vs LLM agents disagreed on this record</span>' : ''}
+      </div>
+    </div>
+    <div class="popup-section">
+      <div class="popup-section-title">Synthesizer Reasoning</div>
+      <div class="popup-section-body">${esc(row.reason)}</div>
+    </div>`;
+
+  document.getElementById('popup-overlay').classList.add('visible');
+  document.getElementById('popup-close').focus();
+}
+
+function closePopup() {
+  document.getElementById('popup-overlay').classList.remove('visible');
+}
+
+// ── Confusion Matrix ───────────────────────────────────────────────────────
+function renderConfusionMatrix() {
+  const m = METRICS;
+  const pct = n => m.total > 0 ? (n/m.total*100).toFixed(1)+'%' : '0%';
+  document.getElementById('confusion-matrix').innerHTML = `
+    <div class="cm-wrap">
+      <div style="font-size:.78rem;color:#78909c;font-weight:600;margin-bottom:2px;text-align:center">
+        Predicted Label
+      </div>
+      <div class="cm-header">
+        <div></div>
+        <div class="cm-header-cell">Predicted +</div>
+        <div class="cm-header-cell">Predicted &minus;</div>
+      </div>
+      <div class="cm-row">
+        <div class="cm-row-label">Actual +</div>
+        <div class="cm-cell cm-tp">
+          <div class="cm-count">${m.tp}</div>
+          <div class="cm-label">TP</div>
+          <div class="cm-pct">${pct(m.tp)}</div>
+        </div>
+        <div class="cm-cell cm-fn">
+          <div class="cm-count">${m.fn}</div>
+          <div class="cm-label">FN</div>
+          <div class="cm-pct">${pct(m.fn)}</div>
+        </div>
+      </div>
+      <div class="cm-row">
+        <div class="cm-row-label">Actual &minus;</div>
+        <div class="cm-cell cm-fp">
+          <div class="cm-count">${m.fp}</div>
+          <div class="cm-label">FP</div>
+          <div class="cm-pct">${pct(m.fp)}</div>
+        </div>
+        <div class="cm-cell cm-tn">
+          <div class="cm-count">${m.tn}</div>
+          <div class="cm-label">TN</div>
+          <div class="cm-pct">${pct(m.tn)}</div>
+        </div>
+      </div>
+      <div style="font-size:.73rem;color:#90a4ae;margin-top:8px;text-align:center">
+        N = ${m.total} &nbsp;&bull;&nbsp; Accuracy = ${m.accuracy}
+      </div>
+    </div>`;
+}
+
+// ── Grouped Bar Chart ──────────────────────────────────────────────────────
+function renderGroupedBar() {
+  const ctx    = document.getElementById('contrib-chart').getContext('2d');
+  const labels = AGENT_CONTRIB.map(a => a.label);
+  const rates  = AGENT_CONTRIB.map(a => a.flag_rate);
+  const precs  = AGENT_CONTRIB.map(a => a.precision);
+
+  new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels,
+      datasets: [
+        { label: 'Flag Rate (%)',       data: rates, backgroundColor: 'rgba(63,81,181,.75)',
+          borderColor: '#3f51b5', borderWidth: 1.5, borderRadius: 4 },
+        { label: 'Precision When Flagged (%)', data: precs, backgroundColor: 'rgba(46,125,50,.7)',
+          borderColor: '#2e7d32', borderWidth: 1.5, borderRadius: 4 },
+      ],
+    },
+    options: {
+      responsive: true, maintainAspectRatio: true,
+      plugins: { legend: { position: 'bottom', labels: { font: { size: 11 } } },
+                 tooltip: { callbacks: { label: ctx => ` ${ctx.dataset.label}: ${ctx.parsed.y}%` } } },
+      scales: {
+        y: { min:0, max:100, ticks: { callback: v => v+'%', font:{size:11} },
+             grid: { color:'rgba(0,0,0,.06)' } },
+        x: { ticks: { font:{size:11} }, grid: { display:false } },
+      },
+    },
+  });
+}
+
+// ── Big Metrics ────────────────────────────────────────────────────────────
+function renderMetrics() {
+  const m = METRICS;
+  document.getElementById('metrics-grid').innerHTML = [
+    ['Accuracy',         m.accuracy],
+    ['AUC',              m.auc],
+    ['Sensitivity',      m.sensitivity],
+    ['PPV (Precision)',  m.ppv],
+  ].map(([lbl, val]) => `
+    <div class="metric-box">
+      <div class="metric-val">${val}</div>
+      <div class="metric-lbl">${lbl}</div>
+    </div>`).join('');
+}
+
+// ── Disagreement Section ───────────────────────────────────────────────────
+function renderDisagreement() {
+  const d = DISAGREEMENT;
+  const el = document.getElementById('disagree-content');
+  if (d.total === 0) {
+    el.innerHTML = '<p style="font-size:.87rem;color:#78909c;">No disagreement cases found — all rule and LLM agents agreed on every record.</p>';
+    return;
+  }
+  const rows = d.cases.map(c => `
+    <tr>
+      <td>${esc(c.note_id)}</td>
+      <td><span class="tag-rule">${c.dx_found?'ICD&#10003;':'ICD&#10007;'}</span>
+          <span class="tag-rule">${c.meds_found?'Meds&#10003;':'Meds&#10007;'}</span></td>
+      <td><span class="tag-llm">${c.test_found?'Cog&#10003;':'Cog&#10007;'}</span>
+          <span class="tag-llm">${c.symptoms_found?'Clin&#10003;':'Clin&#10007;'}</span></td>
+      <td>${c.final_prediction===1?'<span class="pred-pos">AD/ADRD+</span>':'<span class="pred-neg">No ADRD</span>'}</td>
+      <td>${c.ground_truth===1?'AD/ADRD+':'No ADRD'}</td>
+      <td><span class="badge ${c.is_correct?'badge-yes':'badge-no'}">${c.is_correct?'&#10003; Correct':'&#10007; Wrong'}</span></td>
+    </tr>`).join('');
+
+  el.innerHTML = `
+    <div class="disagree-summary">
+      <div class="disagree-stat">
+        <div class="ds-val">${d.total}</div>
+        <div class="ds-lbl">Disagreement Cases</div>
+      </div>
+      <div class="disagree-stat" style="background:#f3e5f5;border-color:#ce93d8">
+        <div class="ds-val" style="color:#6a1b9a">${d.accuracy}%</div>
+        <div class="ds-lbl">Accuracy on Disagreements</div>
+      </div>
+      <div class="disagree-stat" style="background:#e3f2fd;border-color:#90caf9">
+        <div class="ds-val" style="color:#1565c0">${Math.round(d.total/METRICS.total*100)}%</div>
+        <div class="ds-lbl">of All Records</div>
+      </div>
+    </div>
+    <table class="disagree-table">
+      <thead>
+        <tr>
+          <th>Note ID</th><th>Rule Agents</th><th>LLM Agents</th>
+          <th>Prediction</th><th>Ground Truth</th><th>Result</th>
+        </tr>
+      </thead>
+      <tbody>${rows}</tbody>
+    </table>`;
+}
+
+// ── System Comparison ──────────────────────────────────────────────────────
+function renderComparison() {
+  if (!COMPARISON || COMPARISON.length < 2) return;
+  const rows = COMPARISON.map(c => `
+    <tr>
+      <td><strong>${esc(c.label)}</strong></td>
+      <td>${c.accuracy}</td><td>${c.auc}</td>
+      <td>${c.sensitivity}</td><td>${c.ppv}</td><td>${c.total}</td>
+    </tr>`).join('');
+
+  document.getElementById('comparison-section').innerHTML = `
+    <div class="comparison-section">
+      <h3>System Comparison: Horizontal vs Vertical</h3>
+      <table class="comparison-table">
+        <thead>
+          <tr><th>System</th><th>Accuracy</th><th>AUC</th>
+              <th>Sensitivity</th><th>PPV</th><th>N</th></tr>
+        </thead>
+        <tbody>${rows}</tbody>
+      </table>
+    </div>`;
+}
+
+// ── Filter button counts ───────────────────────────────────────────────────
+function updateFilterCounts() {
+  const filters = {
+    featured: FEATURED_IDS.length,
+    all:      DATA.length,
+    correct:  DATA.filter(r => r.is_correct).length,
+    wrong:    DATA.filter(r => !r.is_correct).length,
+    medium:   DATA.filter(r => r.confidence==='medium').length,
+    disagree: DATA.filter(r => r.is_disagreement).length,
+  };
+  document.querySelectorAll('.filter-btn').forEach(btn => {
+    const f = btn.dataset.filter;
+    if (f in filters) btn.textContent = btn.textContent.replace(/\s*\(.*\)/, '') + ` (${filters[f]})`;
+  });
+}
+
+// ── Event Listeners ────────────────────────────────────────────────────────
+function setupEvents() {
+  // Filter buttons
+  document.querySelectorAll('.filter-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      currentFilter = btn.dataset.filter;
+      visibleCount  = PAGE_SIZE;
+      renderCards();
+    });
+  });
+
+  // Search
+  document.getElementById('note-search').addEventListener('input', e => {
+    currentSearch = e.target.value;
+    visibleCount  = PAGE_SIZE;
+    if (currentSearch.trim()) {
+      // Switch to "all" filter when searching
+      document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+      document.querySelector('[data-filter="all"]').classList.add('active');
+      currentFilter = 'all';
+    }
+    renderCards();
+  });
+
+  // Load More
+  document.getElementById('load-more-btn').addEventListener('click', () => {
+    visibleCount += PAGE_SIZE;
+    renderCards();
+  });
+
+  // Badge click → popup (event delegation)
+  document.getElementById('cards-grid').addEventListener('click', e => {
+    const badge = e.target.closest('.badge-agent');
+    if (badge) {
+      e.stopPropagation();
+      showPopup(badge.dataset.noteId, badge.dataset.agentKey);
+    }
+    const toggle = e.target.closest('.toggle-btn');
+    if (toggle) {
+      const nid    = toggle.dataset.noteId;
+      const detail = document.getElementById('detail-' + nid);
+      const arrow  = toggle.querySelector('.toggle-arrow');
+      if (detail) {
+        detail.classList.toggle('open');
+        arrow.style.transform = detail.classList.contains('open') ? 'rotate(180deg)' : '';
+      }
+    }
+  });
+
+  // Close popup
+  document.getElementById('popup-close').addEventListener('click', closePopup);
+  document.getElementById('popup-overlay').addEventListener('click', e => {
+    if (e.target === document.getElementById('popup-overlay')) closePopup();
+  });
+  document.addEventListener('keydown', e => { if (e.key === 'Escape') closePopup(); });
+}
+
+// ── Init ───────────────────────────────────────────────────────────────────
+document.addEventListener('DOMContentLoaded', () => {
+  updateFilterCounts();
+  renderCards();
+  renderMetrics();
+  renderConfusionMatrix();
+  renderGroupedBar();
+  renderDisagreement();
+  renderComparison();
+  setupEvents();
+});
+</script>
+</body>
+</html>
