@@ -11,6 +11,7 @@ Run:
 """
 
 import json
+import os
 from pathlib import Path
 
 import pandas as pd
@@ -20,7 +21,9 @@ import streamlit.components.v1 as components
 
 # ─── Configuration ────────────────────────────────────────────────────────────
 
-API_BASE   = "http://localhost:8000"
+# Override with API_BASE env var when running inside Docker
+# (docker-compose sets API_BASE=http://api:8000 for the streamlit service)
+API_BASE   = os.environ.get("API_BASE", "http://localhost:8000")
 _DATA_PATH = Path(__file__).parent / "data"    / "data_test.csv"
 _PRED_PATH = Path(__file__).parent / "outputs" / "predictions_c.csv"
 _GT_COL    = "is AD/ADRD? (type in 1,0, -1) 1 for yes ADRD Present, 0 for No ADRD, -1 uncertain)"

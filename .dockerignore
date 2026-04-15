@@ -1,0 +1,12 @@
+__pycache__/
+*.pyc
+*.pyo
+.env
+.git/
+.github/
+
+# runtime outputs — provided via volume mounts at run time
+outputs/
+logs/
+rag/chroma_db/
+eval/reports/

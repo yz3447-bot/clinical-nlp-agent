@@ -1,0 +1,44 @@
+services:
+
+  # ── FastAPI backend ──────────────────────────────────────────────────────────
+  api:
+    build: .
+    command: uvicorn api:app --host 0.0.0.0 --port 8000
+    ports:
+      - "8000:8000"
+    environment:
+      - GEMINI_API_KEY=${GEMINI_API_KEY}
+    volumes:
+      - ./data:/app/data:ro            # read-only input data
+      - ./outputs:/app/outputs         # predictions_c.csv + review_queue.db
+      - ./rag/chroma_db:/app/rag/chroma_db  # persisted vector store
+      - ./logs:/app/logs               # JSONL request logs
+    healthcheck:
+      test: ["CMD", "curl", "-sf", "http://localhost:8000/health"]
+      interval: 20s
+      timeout: 10s
+      retries: 5
+      start_period: 40s    # allow time for Gemini client init
+    restart: unless-stopped
+
+  # ── Streamlit frontend ───────────────────────────────────────────────────────
+  streamlit:
+    build: .
+    command: >
+      streamlit run app.py
+        --server.port 8501
+        --server.address 0.0.0.0
+        --server.headless true
+        --server.fileWatcherType none
+    ports:
+      - "8501:8501"
+    environment:
+      # Tells app.py to reach the API container by its service name, not localhost
+      - API_BASE=http://api:8000
+    volumes:
+      - ./data:/app/data:ro
+      - ./outputs:/app/outputs         # shared with api — review queue + predictions
+    depends_on:
+      api:
+        condition: service_healthy
+    restart: unless-stopped
