@@ -22,3 +22,5 @@ plotly>=5.22.0
 
 # CI
 flake8>=7.0.0
+
+pytest>=8.0
