@@ -1,7 +1,8 @@
 """
 Diagnosis Agent — Layer 3 (corroborative, weight +1).
 Step 1: Rule-based ICD code matching (no LLM, cheap).
-Step 2: LLM reads full note to determine current vs historical.
+Step 2: LLM reads full note (including PMH) to determine whether codes
+        represent genuine chronic AD/ADRD vs an exclusion case.
 """
 
 import json
@@ -24,6 +25,7 @@ def _extract_dx_sections(text: str) -> str:
     Active Issues covers MIMIC notes that use ACTIVE ISSUES: / INACTIVE ISSUES: headers.
     """
     patterns = [
+        r"(?i)(past\s+medical\s+history.*?)(?=\n[A-Z][A-Za-z\s&/]{2,}:\s*\n|\Z)",
         r"(?i)(assessment\s*(?:and|&)\s*plan.*?)(?=\n[A-Z][A-Za-z\s&/]{2,}:\s*\n|\Z)",
         r"(?i)(brief\s+hospital\s+course.*?)(?=\n[A-Z][A-Za-z\s&/]{2,}:\s*\n|\Z)",
         r"(?i)(active\s+issues?.*?)(?=\n[A-Z][A-Za-z\s&/]{2,}:\s*\n|\Z)",
@@ -39,7 +41,7 @@ def _extract_dx_sections(text: str) -> str:
 
     if extracted:
         combined = "\n\n".join(dict.fromkeys(extracted))
-        return combined[:3000]
+        return combined[:4000]
 
     return text[:2000]
 
@@ -72,27 +74,32 @@ DX_CONTEXT_PROMPT = """You are a medical coding specialist and diagnostician.
 
 You have been provided with:
 1. The patient's ICD codes that matched the AD/ADRD whitelist: {matched_codes}
-2. The complete clinical note
+2. Relevant sections of the clinical note (including Past Medical History)
 
-Your task is to determine whether these ICD codes represent:
-- A CURRENT ACTIVE diagnosis being managed during this admission
-- A HISTORICAL diagnosis carried forward from previous encounters
+Your task is to determine whether these ICD codes represent genuine CHRONIC AD/ADRD
+in this patient, drawing on ALL documentation in the note.
 
 As an experienced coding specialist, you know that:
-- ICD codes in EHR are often carried forward from previous admissions
-- A current diagnosis should be reflected in the clinical note's
-  Assessment & Plan or Discharge Diagnosis
-- Historical codes may appear in Past Medical History without
-  active management
-- The presence of an ICD code alone does not confirm active disease
+- A chronic AD/ADRD diagnosis documented ANYWHERE in the note IS valid evidence.
+  This includes Past Medical History, prior admission carry-forward codes for a
+  genuine neurodegenerative condition, or any note section referencing dementia.
+- ICD codes carried forward from prior admissions still count when they reflect a
+  real chronic condition the patient has been living with.
+- The following are EXCLUSION CASES — set is_chronic=false and is_exclusion=true:
+  * Acute delirium (F05) or acute toxic/metabolic encephalopathy (G92) with NO
+    separate documentation of underlying chronic dementia anywhere in the note
+  * Record where the patient died acutely and the discharge diagnosis contains no
+    AD/ADRD, and the note has no cognitive content whatsoever
+  * G312 (alcohol-related neurodegeneration) where the note describes only acute
+    alcohol-related events with no chronic dementia description
 
-Carefully read the clinical note, especially:
-- Assessment & Plan section
-- Discharge diagnosis
-- Active problem list
-- Whether the admission is related to cognitive/behavioral issues
+Carefully read ALL sections, especially:
+- Past Medical History — prior chronic diagnoses are valid evidence
+- Assessment & Plan and Discharge Diagnosis
+- Active problem list and Brief Hospital Course
+- History of Present Illness
 
-Clinical note:
+Clinical note sections:
 ---
 {text}
 ---
@@ -101,24 +108,49 @@ Output ONLY this JSON:
 {{
   "dx_found": true,
   "matched_codes": {matched_codes_json},
-  "is_current_diagnosis": true or false,
+  "is_chronic": true or false,
+  "is_exclusion": true or false,
   "confidence": "high" or "medium" or "low",
-  "reasoning": "explain whether this is current or historical based on note",
-  "assessment": "one sentence: coding evidence for or against current AD/ADRD"
-}}"""
+  "reasoning": "cite specific text explaining whether chronic AD/ADRD is supported, absent, or excluded",
+  "assessment": "one sentence: coding evidence for or against chronic AD/ADRD"
+}}
+
+Confidence reflects your certainty in your own conclusion (is_chronic):
+- high: clear documentation strongly supports or clearly refutes the chronic diagnosis
+- medium: some evidence but with gaps or ambiguity
+- low: minimal evidence; uncertain judgment
+
+Set is_exclusion=true ONLY when is_chronic=false AND a specific exclusion condition
+applies (acute delirium only, death carry-forward, or alcohol-only G312).
+When is_chronic=true, always set is_exclusion=false."""
 
 
 def _normalise(code: str) -> str:
     return code.replace(".", "").strip().upper()
 
 
-def _compute_confidence_score(dx_found: bool, is_current: bool, confidence: str) -> float:
-    """Rule-based confidence score derived from ICD match and currency assessment."""
+def _compute_confidence_score(
+    dx_found: bool,
+    is_chronic: bool,
+    confidence: str,
+    is_exclusion: bool = False,
+) -> float:
+    """Confidence score = agent's certainty in its own conclusion (not signal strength).
+
+    no ICD match          → 0.85  (rule-based, certain negative)
+    is_chronic=False
+      is_exclusion=True   → 0.85  (LLM identified a known exclusion pattern)
+      is_exclusion=False  → 0.40  (codes present but LLM uncertain about chronicity)
+    is_chronic=True
+      high LLM certainty  → 0.85
+      medium              → 0.65
+      low                 → 0.40
+    """
     if not dx_found:
-        return 0.0
-    if not is_current:
-        return 0.0
-    return {"high": 0.9, "medium": 0.6, "low": 0.3}.get(confidence, 0.3)
+        return 0.85
+    if not is_chronic:
+        return 0.85 if is_exclusion else 0.40
+    return {"high": 0.85, "medium": 0.65, "low": 0.40}.get(confidence, 0.40)
 
 
 def _parse_llm_json(content: str) -> dict | None:
@@ -161,13 +193,13 @@ def run_diagnosis_agent(row: dict, llm=None) -> DiagnosisAgentOutput:
             dx_found=False,
             matched_codes=[],
             is_current_diagnosis=False,
-            confidence="low",
-            confidence_score=0.0,
+            confidence="high",
+            confidence_score=_compute_confidence_score(False, False, "high"),
             reasoning="No AD/ADRD ICD codes found in record.",
             assessment="No AD/ADRD ICD codes present.",
         )
 
-    # ── Step 2: LLM context analysis (current vs historical) ─────────────────
+    # ── Step 2: LLM context analysis (chronic vs exclusion) ──────────────────
     text = str(row.get("text", "") or "")
     if not text.strip() or llm is None:
         return DiagnosisAgentOutput(
@@ -177,7 +209,7 @@ def run_diagnosis_agent(row: dict, llm=None) -> DiagnosisAgentOutput:
             confidence="medium",
             confidence_score=_compute_confidence_score(True, True, "medium"),
             reasoning="ICD codes matched; no LLM context check available.",
-            assessment=f"ICD codes matched ({', '.join(matched)}); assumed current.",
+            assessment=f"ICD codes matched ({', '.join(matched)}); assumed chronic.",
         )
 
     try:
@@ -192,15 +224,16 @@ def run_diagnosis_agent(row: dict, llm=None) -> DiagnosisAgentOutput:
         parsed   = _parse_llm_json(content)
 
         if parsed:
-            is_current = bool(parsed.get("is_current_diagnosis", True))
-            conf_raw   = str(parsed.get("confidence", "medium")).lower().strip()
-            conf       = conf_raw if conf_raw in ("high", "medium", "low") else "medium"
+            is_chronic    = bool(parsed.get("is_chronic", True))
+            is_exclusion  = bool(parsed.get("is_exclusion", False))
+            conf_raw      = str(parsed.get("confidence", "medium")).lower().strip()
+            conf          = conf_raw if conf_raw in ("high", "medium", "low") else "medium"
             return DiagnosisAgentOutput(
                 dx_found=True,
                 matched_codes=matched,
-                is_current_diagnosis=is_current,
+                is_current_diagnosis=is_chronic,
                 confidence=conf,
-                confidence_score=_compute_confidence_score(True, is_current, conf),
+                confidence_score=_compute_confidence_score(True, is_chronic, conf, is_exclusion),
                 reasoning=str(parsed.get("reasoning", "")),
                 assessment=str(parsed.get("assessment", "")),
             )

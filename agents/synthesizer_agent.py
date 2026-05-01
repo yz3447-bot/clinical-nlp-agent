@@ -19,9 +19,11 @@ from schemas import (
 
 logger = get_logger(__name__)
 
-# Confidence scores below this threshold are considered weak evidence in post-hoc correction Rule B.
-# Chosen to exclude single-source, unconfirmed, or historical-only signals (all score ≤ 0.3).
-_WEAK_EVIDENCE_THRESHOLD = 0.4
+# Confidence scores below this threshold trigger Rule B forced downgrade.
+# With the new confidence semantics (certainty in own conclusion), 0.40 means
+# "uncertain" — a legitimate state, not a weak signal. Only scores < 0.30
+# represent agents that are truly unconfident and should not drive a high verdict.
+_WEAK_EVIDENCE_THRESHOLD = 0.3
 
 SYNTHESIZER_PROMPT = """You are a senior attending physician and dementia specialist making
 the final diagnosis for a patient.

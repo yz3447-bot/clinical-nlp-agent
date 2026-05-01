@@ -73,6 +73,13 @@ Only set meds_found=true for CURRENTLY PRESCRIBED status.
 Look for evidence in: medication reconciliation, discharge medications,
 home medications, and medication orders.
 
+IMPORTANT: Medications documented in "Medications on Admission" or home
+medication lists count as valid current evidence, even if this admission
+is for an unrelated condition. For example, a patient taking donepezil at
+home who is admitted for pneumonia should still be classified as
+meds_found=true, status=current. Do not classify admission medications as
+"historical" simply because the patient was admitted for another reason.
+
 Clinical note:
 ---
 {text}
@@ -97,19 +104,21 @@ def _compute_confidence_score(
 ) -> float:
     """Rule-based confidence score derived from medication source and status."""
     if not meds_found:
-        return 0.0
+        # Weak negative: absence of AD medications is not conclusive.
+        # Many confirmed AD/ADRD patients are not prescribed these medications.
+        return 0.30
     if source in ("annotation", "structured"):
-        return 0.9
+        return 0.95
     if status == "current":
         meds_lower = " ".join(m.lower() for m in (medications or []))
         if any(kw in meds_lower for kw in _ANNOTATION_MED_KEYWORDS):
             return 0.75
-        return 0.6
+        return 0.75
     if status in ("historical", "refused"):
-        return 0.2
+        return 0.55
     if status == "mentioned":
         return 0.05
-    return 0.0
+    return 0.30
 
 
 def _parse_llm_json(content: str) -> dict | None:
@@ -159,7 +168,7 @@ def run_medication_agent(row: dict, llm=None) -> MedicationAgentOutput:
             status="none",
             source="none",
             confidence="low",
-            confidence_score=0.0,
+            confidence_score=_compute_confidence_score(False, "none", "none"),
             reasoning="No text available for LLM scan.",
             assessment="Cannot assess — no clinical text.",
         )
@@ -200,7 +209,7 @@ def run_medication_agent(row: dict, llm=None) -> MedicationAgentOutput:
         status="none",
         source="none",
         confidence="low",
-        confidence_score=0.0,
+        confidence_score=_compute_confidence_score(False, "none", "none"),
         reasoning="LLM scan failed.",
         assessment="LLM scan failed — defaulting negative.",
     )

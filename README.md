@@ -19,6 +19,54 @@ Metrics are printed automatically after each run. Reproduce with:
 python main_c.py
 ```
 
+## Label Definition
+
+本系统的判断目标是：
+**这份出院病历是否提供了足够可信的证据，
+证明这个病人有慢性 AD/ADRD。**
+
+不是判断"本次住院是否在 active management AD/ADRD"。
+历史诊断、PMH 记录、入院用药里的 AD 药物，全部算有效证据。
+
+### 正例（GT=1）标准
+
+满足以下任一条，且标注员判断证据指向真实慢性认知退化：
+
+1. AD/ADRD 相关 ICD 编码存在，且病历文本中有任何支撑性描述
+   （包括 PMH 一句 "dementia"、HPI 提及认知障碍、
+   查体发现定向力障碍、家属描述记忆力下降等）
+
+2. 病历文本中医生明确记录了 AD/ADRD 或慢性认知障碍诊断
+
+3. 当前用药或入院用药包含 AD 专用药物
+   （donepezil / memantine / rivastigmine / galantamine）
+
+### 负例（GT=0）标准
+
+以下三种情况即便有 AD/ADRD ICD 编码也判为负例：
+
+- **排除一（急性谵妄）**：认知相关 ICD 仅为急性谵妄（F05）
+  或急性脑病（G92），且文本中无慢性认知退化的任何描述
+
+- **排除二（死亡携带码）**：患者本次因急症死亡或撤治，
+  出院诊断不含 AD/ADRD，文本中完全无认知相关内容
+
+- **排除三（边界 ICD）**：匹配码仅为 G312
+  （酒精性神经退化），且文本只描述急性酒精相关事件，
+  无慢性痴呆的明确描述
+
+### Uncertain（GT=-1）标准
+
+病历中有认知相关描述但措辞为 possible / suspected /
+rule out，或证据极其稀少、无法确信。
+
+### 重要说明
+
+- 本次住院主诊非 AD → 不影响判断
+- 出院时精神状态正常 → 不否定慢性诊断
+- 无 AD 药物 → 中性，不是阴性证据
+- 急性谵妄解决 → 不排除底层慢性痴呆
+
 ## Architecture
 
 ```
