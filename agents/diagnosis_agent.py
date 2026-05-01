@@ -1,5 +1,5 @@
 """
-Diagnosis Agent — Layer 3 (corroborative, weight +1).
+Diagnosis Agent — ICD corroboration layer.
 Step 1: Rule-based ICD code matching (no LLM, cheap).
 Step 2: LLM reads full note (including PMH) to determine whether codes
         represent genuine chronic AD/ADRD vs an exclusion case.

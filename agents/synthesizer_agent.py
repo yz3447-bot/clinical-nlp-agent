@@ -270,9 +270,9 @@ def run_synthesizer_agent(
 ) -> SynthesizerOutput:
     """
     Args:
-        dx_result:   output from diagnosis_agent   (weight 1)
-        med_result:  output from medication_agent  (weight 3)
-        clin_result: output from clintext_agent    (weight 3)
+        dx_result:   output from diagnosis_agent   (ICD corroboration)
+        med_result:  output from medication_agent  (pharmacological confirmation)
+        clin_result: output from clintext_agent    (primary clinical evidence)
         llm:         LangChain LLM instance
         text:        full clinical note text
     Returns:

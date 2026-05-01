@@ -1,5 +1,5 @@
 """
-Medication Agent — Layer 2 (pharmacological confirmation, weight +3).
+Medication Agent — pharmacological confirmation layer.
 Phase 1: human annotation column (fast path).
 Phase 2: LLM free-text scan of medication sections.
 """

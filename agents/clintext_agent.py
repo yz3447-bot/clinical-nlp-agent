@@ -1,5 +1,5 @@
 """
-Clinical Text Agent — Layer 1 (primary evidence, weight +3).
+Clinical Text Agent — primary evidence layer.
 Neurologist reads the FULL clinical note for current AD/ADRD evidence.
 Returns exact quotes, explicit reasoning, and exclusion list.
 """
