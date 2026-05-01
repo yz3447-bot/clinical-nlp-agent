@@ -2,12 +2,18 @@
 main_c.py — Horizontal Multi-Agent System for AD/ADRD Identification from EHR records.
 
 Architecture (three independent specialist agents + synthesizer):
-  Layer 1  ClinTextAgent   (neurologist,    weight +3)  ─┐
-  Layer 2  MedicationAgent (pharmacist,     weight +3)  ─┤─→ SynthesizerAgent → prediction + subtype
-  Layer 3  DiagnosisAgent  (coding spec,    weight +1)  ─┘
+  ClinTextAgent (primary evidence) ─┐
+  MedicationAgent (pharmacological) ─┤─→ SynthesizerAgent → prediction + subtype
+  DiagnosisAgent  (ICD corroboration) ─┘
   Agents run in parallel via ThreadPoolExecutor (inside pipeline.py).
+
+Usage:
+  python main_c.py                              # process all CSVs in data/
+  python main_c.py --input data/data_test.csv  # process one specific file
+  python main_c.py --input data/               # process all CSVs in a directory
 """
 
+import argparse
 import csv
 import json
 import os
@@ -55,11 +61,22 @@ def build_llm() -> ChatGoogleGenerativeAI:
     )
 
 
-def find_csv_files() -> list[Path]:
-    csvs = list(DATA_DIR.glob("*.csv"))
-    if not csvs:
-        raise FileNotFoundError(f"No CSV files found in {DATA_DIR}. Place your data CSV there.")
-    return csvs
+def resolve_csv_files(input_path: Path) -> list[Path]:
+    """Return CSV files to process.
+
+    - If input_path is a .csv file: return just that file.
+    - If input_path is a directory: return all *.csv files in it.
+    """
+    if input_path.is_file():
+        if input_path.suffix.lower() != ".csv":
+            raise ValueError(f"--input must be a .csv file or a directory, got: {input_path}")
+        return [input_path]
+    if input_path.is_dir():
+        csvs = sorted(input_path.glob("*.csv"))
+        if not csvs:
+            raise FileNotFoundError(f"No CSV files found in {input_path}.")
+        return csvs
+    raise FileNotFoundError(f"--input path not found: {input_path}")
 
 
 def load_processed_note_ids() -> set:
@@ -211,6 +228,15 @@ def compute_metrics(output_csv: Path):
 
 
 def main():
+    parser = argparse.ArgumentParser(
+        description="AD/ADRD Horizontal Multi-Agent System"
+    )
+    parser.add_argument(
+        "--input", default=str(DATA_DIR),
+        help="Path to a single CSV file or a directory of CSVs (default: data/).",
+    )
+    args = parser.parse_args()
+
     logger.info("=" * 60)
     logger.info("  AD/ADRD Horizontal Multi-Agent System  (main_c.py)")
     logger.info("=" * 60)
@@ -235,7 +261,7 @@ def main():
             kb_size,
         )
 
-    csv_files = find_csv_files()
+    csv_files = resolve_csv_files(Path(args.input))
     logger.info("[Data] Found %d CSV file(s): %s", len(csv_files), [f.name for f in csv_files])
 
     init_output_csv()
