@@ -85,6 +85,11 @@ As an experienced coding specialist, you know that:
   genuine neurodegenerative condition, or any note section referencing dementia.
 - ICD codes carried forward from prior admissions still count when they reflect a
   real chronic condition the patient has been living with.
+- The fact that this admission is NOT primarily for AD/ADRD does NOT mean the
+  patient lacks chronic AD/ADRD — patients with dementia are frequently admitted
+  for other reasons (falls, infection, cardiac events).
+- Normal mental status at discharge does NOT negate a pre-existing chronic
+  dementia diagnosis — patients may return to their baseline.
 - The following are EXCLUSION CASES — set is_chronic=false and is_exclusion=true:
   * Acute delirium (F05) or acute toxic/metabolic encephalopathy (G92) with NO
     separate documentation of underlying chronic dementia anywhere in the note
@@ -140,17 +145,17 @@ def _compute_confidence_score(
     no ICD match          → 0.85  (rule-based, certain negative)
     is_chronic=False
       is_exclusion=True   → 0.85  (LLM identified a known exclusion pattern)
-      is_exclusion=False  → 0.40  (codes present but LLM uncertain about chronicity)
+      is_exclusion=False  → 0.30  (codes present but LLM uncertain about chronicity)
     is_chronic=True
-      high LLM certainty  → 0.85
-      medium              → 0.65
+      high LLM certainty  → 0.90
+      medium              → 0.70
       low                 → 0.40
     """
     if not dx_found:
         return 0.85
     if not is_chronic:
-        return 0.85 if is_exclusion else 0.40
-    return {"high": 0.85, "medium": 0.65, "low": 0.40}.get(confidence, 0.40)
+        return 0.85 if is_exclusion else 0.30
+    return {"high": 0.90, "medium": 0.70, "low": 0.40}.get(confidence, 0.40)
 
 
 def _parse_llm_json(content: str) -> dict | None:
