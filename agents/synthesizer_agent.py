@@ -207,40 +207,50 @@ def _apply_confidence_correction(
     med_result:  MedicationAgentOutput,
     dx_result:   DiagnosisAgentOutput,
 ) -> dict:
-    """Post-processing rules that prevent the Synthesizer from being over-confident."""
-    clin_score = clin_result.confidence_score
-    med_score  = med_result.confidence_score
-    dx_score   = dx_result.confidence_score
+    """Post-processing rules that prevent the Synthesizer from being over-confident.
 
+    Rules stack — all applicable rules are applied in order before returning.
+    """
     current_confidence = result.get("confidence", "low")
-    has_discrepancy    = bool(result.get("discrepancy"))
-    has_overruled      = bool(result.get("overruled_agents"))
-    low_evidence_count = sum(1 for s in (clin_score, med_score, dx_score) if s < 0.3)
-    sparse_early_case  = (
-        med_score == 0.0 and
-        len(clin_result.evidence_list) < 2
-    )
+    final_prediction   = result.get("final_prediction", 0)
+    overruled          = result.get("overruled_agents", [])
+    contributing       = result.get("contributing_agents", [])
 
-    # Rule 1: discrepancy + overruled agents → cap at medium
-    if has_discrepancy and has_overruled:
-        if current_confidence == "high":
-            result["confidence"] = "medium"
-            result["confidence_correction"] = "Downgraded: discrepancy with overruled agents"
-            return result
+    score_map = {
+        "ClinTextAgent":   clin_result.confidence_score,
+        "MedicationAgent": med_result.confidence_score,
+        "DiagnosisAgent":  dx_result.confidence_score,
+    }
+    contributing_scores = [score_map[a] for a in contributing if a in score_map]
 
-    # Rule 2: majority of agents have weak evidence → cap at low
-    if low_evidence_count >= 2:
-        if current_confidence in ("high", "medium"):
-            result["confidence"] = "low"
-            result["confidence_correction"] = "Downgraded: insufficient evidence across agents"
-            return result
+    correction_reasons: list[str] = []
 
-    # Rule 3: no medication evidence + sparse clinical quotes → cap at low
-    if sparse_early_case:
-        if current_confidence == "high":
-            result["confidence"] = "low"
-            result["confidence_correction"] = "Downgraded: sparse evidence, possible early-stage case"
-            return result
+    # Rule A: overruled agents present → cap at medium
+    if overruled and current_confidence == "high":
+        result["confidence"] = "medium"
+        current_confidence   = "medium"
+        correction_reasons.append("overruled agents present")
+
+    # Rule B: all contributing agents have weak evidence → cap at low
+    if (
+        contributing_scores
+        and all(s < 0.4 for s in contributing_scores)
+        and current_confidence in ("high", "medium")
+    ):
+        result["confidence"] = "low"
+        current_confidence   = "low"
+        correction_reasons.append("all contributing agents have weak evidence")
+
+    # Rule C: positive prediction with no contributing agents → force low
+    if final_prediction == 1 and not contributing:
+        result["confidence"] = "low"
+        current_confidence   = "low"  # noqa: F841
+        correction_reasons.append("positive prediction with no contributing agents")
+
+    if correction_reasons:
+        result["confidence_correction"] = "Downgraded: " + " | ".join(correction_reasons)
+    else:
+        result["confidence_correction"] = result.get("confidence_correction") or None
 
     return result
 
@@ -274,7 +284,7 @@ def run_synthesizer_agent(
     clin_pos = clin_result.symptoms_found
     dx_pos   = dx_result.dx_found
 
-    if med_pos and clin_pos:
+    if med_pos and clin_pos and dx_pos:
         consensus_result = SynthesizerOutput(
             final_prediction=1,
             subtype="nsd",
@@ -283,8 +293,8 @@ def run_synthesizer_agent(
             total_score=score,
             contributing_agents=contributing,
             causal_chain=(
-                "All specialist agents reached consensus: MedicationAgent and ClinTextAgent "
-                "both positive. LLM arbitration skipped."
+                "All specialist agents reached consensus: MedicationAgent, ClinTextAgent, "
+                "and DiagnosisAgent all positive. LLM arbitration skipped."
             ),
             discrepancy=None,
             overruled_agents=[],

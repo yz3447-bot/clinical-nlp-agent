@@ -1,0 +1,22 @@
+{
+  "total": 87,
+  "correct": 78,
+  "tp": 47,
+  "fp": 3,
+  "fn": 6,
+  "tn": 31,
+  "accuracy": 0.8966,
+  "sensitivity": 0.8868,
+  "ppv": 0.94,
+  "specificity": 0.9118,
+  "f1": 0.9126,
+  "error_buckets": {
+    "total_errors": 9,
+    "false_positives": 3,
+    "false_negatives": 6,
+    "contradictory_errors": 3,
+    "low_confidence_errors": 5,
+    "consensus_path_errors": 1,
+    "all_with_discrepancy": 21
+  }
+}

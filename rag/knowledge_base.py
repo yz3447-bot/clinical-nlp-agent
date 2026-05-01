@@ -55,6 +55,11 @@ class KnowledgeBase:
             })
         return cases
 
+    def clear(self) -> None:
+        """Delete and recreate the collection, removing all stored cases."""
+        self._client.delete_collection(_COLLECTION_NAME)
+        self._col = self._client.get_or_create_collection(_COLLECTION_NAME)
+
     def get_stats(self) -> int:
         """Return the total number of cases stored in the knowledge base."""
         return self._col.count()

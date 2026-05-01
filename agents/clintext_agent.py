@@ -76,27 +76,33 @@ def _compute_confidence_score(symptoms_found: bool, evidence_list: list[str]) ->
         return 0.0
 
     score = 0.0
+    n = len(evidence_list)
 
-    # Evidence quantity
-    if len(evidence_list) >= 3:
-        score += 0.4
+    # Evidence quantity (four tiers)
+    if n >= 5:
+        score += 0.5
+    elif n >= 2:
+        score += 0.35
     else:
-        score += 0.2
+        score += 0.15
 
-    # Source quality: Assessment/Plan/Discharge > HPI/PMH only
+    # Source quality
     ev_text = " ".join(evidence_list).lower()
-    high_src = any(kw in ev_text for kw in ("assessment", "plan", "discharge"))
-    low_src  = any(kw in ev_text for kw in ("hpi", "pmh"))
-
-    if high_src:
+    if any(kw in ev_text for kw in ("brief hospital course", "assessment", "plan", "discharge")):
         score += 0.3
-    elif low_src:
-        score += 0.1
+    elif any(kw in ev_text for kw in ("hpi",)):
+        score += 0.2
+    elif any(kw in ev_text for kw in ("pmh", "past medical")):
+        score += 0.05
 
-    # Negation penalty
+    # Negation penalty: only if majority of quotes contain negation
     negations = ("no evidence", "ruled out", "no dementia", "no cognitive")
-    if any(phrase in ev_text for phrase in negations):
-        score -= 0.3
+    negated_count = sum(
+        1 for quote in evidence_list
+        if any(phrase in quote.lower() for phrase in negations)
+    )
+    if negated_count > n / 2:
+        score -= 0.2
 
     return round(max(0.0, min(1.0, score)), 4)
 

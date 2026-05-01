@@ -14,13 +14,18 @@ from datetime import datetime, timezone
 from agents.clintext_agent import run_clintext_agent
 from agents.diagnosis_agent import run_diagnosis_agent
 from agents.medication_agent import run_medication_agent
-from agents.synthesizer_agent import run_synthesizer_agent
+from agents.synthesizer_agent import (
+    _compute_score,
+    _fallback_result,
+    run_synthesizer_agent,
+)
 from logger import get_logger
 from schemas import (
     ClinTextAgentOutput,
     DiagnosisAgentOutput,
     MedicationAgentOutput,
     PipelineResult,
+    SynthesizerOutput,
 )
 
 logger = get_logger(__name__)
@@ -95,6 +100,7 @@ def run_pipeline(
     subject_id: str = "",
     ground_truth: str = "",
     ground_truth_subtype: str = "",
+    ad_med_annotation: str = "",
     include_detail: bool = False,
 ) -> tuple[PipelineResult, dict | None, dict]:
     """
@@ -109,6 +115,8 @@ def run_pipeline(
         note_id / subject_id:  EHR identifiers; empty strings for API calls.
         ground_truth /
         ground_truth_subtype:  Gold labels; empty strings for API calls.
+        ad_med_annotation:     Human-annotated medication text (e.g. column value
+                               from "AD/ADRD medications" column); empty string if absent.
         include_detail:        When True, second element of the tuple contains raw
                                per-agent outputs (evidence_list, medications, etc.).
                                When False (default), second element is None.
@@ -118,7 +126,11 @@ def run_pipeline(
         detail dict only when include_detail=True.
     """
     t_start = time.perf_counter()
-    row     = {"text": text, "all_icd_codes": icd_codes}
+    row = {
+        "text":               text,
+        "all_icd_codes":      icd_codes,
+        "ad_med_annotation":  ad_med_annotation,
+    }
     agent_errors: list[str] = []
 
     # ── Parallel execution: Agents 1–3 ──────────────────────────────────────
@@ -178,8 +190,33 @@ def run_pipeline(
     ):
         agent_errors.append("DiagnosisAgent")
 
-    # ── Serial: Synthesizer ───────────────────────────────────────────────────
-    synth = run_synthesizer_agent(dx_result, med_result, clin_result, llm, text=text)
+    # ── Serial: Synthesizer (with timeout) ───────────────────────────────────
+    with concurrent.futures.ThreadPoolExecutor(max_workers=1) as synth_executor:
+        synth_future = synth_executor.submit(
+            run_synthesizer_agent,
+            dx_result, med_result, clin_result, llm,
+            text=text,
+        )
+        try:
+            synth = synth_future.result(timeout=_AGENT_TIMEOUT_S)
+        except concurrent.futures.TimeoutError:
+            logger.warning(
+                "Synthesizer timed out after %ds — using deterministic fallback",
+                _AGENT_TIMEOUT_S,
+            )
+            agent_errors.append("Synthesizer:timeout")
+            score_val, contributing_val = _compute_score(clin_result, med_result, dx_result)
+            fallback = _fallback_result(
+                score_val, contributing_val, clin_result, med_result, dx_result
+            )
+            synth = SynthesizerOutput(
+                **fallback,
+                synthesis_mode="llm_arbitration",
+                confidence_score_clin=float(clin_result.confidence_score),
+                confidence_score_med=float(med_result.confidence_score),
+                confidence_score_dx=float(dx_result.confidence_score),
+                confidence_correction=None,
+            )
 
     logger.info(
         "  [Synthesizer]  prediction=%s subtype=%s confidence=%s mode=%s",
@@ -195,7 +232,7 @@ def run_pipeline(
 
     # ── LLM call accounting ───────────────────────────────────────────────────
     calls_clin  = 1  # ClinTextAgent always calls LLM when text is non-empty
-    calls_med   = 0 if med_result.source == "structured" else 1
+    calls_med   = 0 if med_result.source in ("structured", "annotation") else 1
     calls_dx    = 0 if not dx_result.matched_codes else 1
     calls_synth = 0 if synth.synthesis_mode in (
         "consensus_positive", "consensus_negative"

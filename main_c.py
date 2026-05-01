@@ -151,6 +151,10 @@ def process_row(row: dict, llm, kb=None, run_id: str = "") -> dict:
 
     text      = str(row.get("text", "") or "")
     icd_codes = str(row.get("all_icd_codes", "") or "")
+    med_annotation_col = next(
+        (c for c in row_dict if "AD/ADRD medications" in c), None
+    )
+    ad_med_annotation = str(row_dict.get(med_annotation_col, "")) if med_annotation_col else ""
 
     logger.info(
         "[Processing] note_id=%s | subject_id=%s | gt=%s | gt_subtype=%s | text_len=%d",
@@ -167,6 +171,7 @@ def process_row(row: dict, llm, kb=None, run_id: str = "") -> dict:
         subject_id=subject_id,
         ground_truth=ground_truth,
         ground_truth_subtype=ground_truth_subtype,
+        ad_med_annotation=ad_med_annotation,
     )
     append_evidence(evidence_record)
     return _serialise_for_csv(pipeline_result.model_dump())

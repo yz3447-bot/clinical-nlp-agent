@@ -12,6 +12,38 @@ from schemas import DiagnosisAgentOutput
 
 logger = get_logger(__name__)
 
+
+def _extract_dx_sections(text: str) -> str:
+    """
+    Extract diagnosis-related sections from a clinical note.
+    Targets: Assessment & Plan, Brief Hospital Course (MIMIC primary A&P),
+             Active Issues, Discharge Diagnosis, Discharge Condition, Final Diagnosis.
+    Falls back to the first 2000 chars when no section is found.
+    Brief Hospital Course is added because MIMIC discharge summaries use it
+    as the primary narrative A&P equivalent; 'Assessment & Plan' rarely appears.
+    Active Issues covers MIMIC notes that use ACTIVE ISSUES: / INACTIVE ISSUES: headers.
+    """
+    patterns = [
+        r"(?i)(assessment\s*(?:and|&)\s*plan.*?)(?=\n[A-Z][A-Za-z\s&/]{2,}:\s*\n|\Z)",
+        r"(?i)(brief\s+hospital\s+course.*?)(?=\n[A-Z][A-Za-z\s&/]{2,}:\s*\n|\Z)",
+        r"(?i)(active\s+issues?.*?)(?=\n[A-Z][A-Za-z\s&/]{2,}:\s*\n|\Z)",
+        r"(?i)(discharge\s+diagnosis.*?)(?=\n[A-Z][A-Za-z\s&/]{2,}:\s*\n|\Z)",
+        r"(?i)(discharge\s+condition.*?)(?=\n[A-Z][A-Za-z\s&/]{2,}:\s*\n|\Z)",
+        r"(?i)(final\s+diagnosis.*?)(?=\n[A-Z][A-Za-z\s&/]{2,}:\s*\n|\Z)",
+    ]
+
+    extracted = []
+    for pattern in patterns:
+        matches = re.findall(pattern, text, re.DOTALL)
+        extracted.extend(m.strip() for m in matches if m.strip())
+
+    if extracted:
+        combined = "\n\n".join(dict.fromkeys(extracted))
+        return combined[:3000]
+
+    return text[:2000]
+
+
 # ICD-9 AD/ADRD codes
 AD_ICD9 = {
     "2900", "29010", "29011", "29020", "29021", "2903",
@@ -85,8 +117,8 @@ def _compute_confidence_score(dx_found: bool, is_current: bool, confidence: str)
     if not dx_found:
         return 0.0
     if not is_current:
-        return 0.1
-    return {"high": 0.8, "medium": 0.5, "low": 0.3}.get(confidence, 0.3)
+        return 0.0
+    return {"high": 0.9, "medium": 0.6, "low": 0.3}.get(confidence, 0.3)
 
 
 def _parse_llm_json(content: str) -> dict | None:
@@ -149,10 +181,11 @@ def run_diagnosis_agent(row: dict, llm=None) -> DiagnosisAgentOutput:
         )
 
     try:
+        dx_text = _extract_dx_sections(text)
         prompt = DX_CONTEXT_PROMPT.format(
             matched_codes=", ".join(matched),
             matched_codes_json=json.dumps(matched),
-            text=text,
+            text=dx_text,
         )
         response = llm.invoke(prompt)
         content  = response.content if hasattr(response, "content") else str(response)

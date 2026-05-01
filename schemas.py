@@ -28,7 +28,7 @@ class MedicationAgentOutput(BaseModel):
     meds_found: bool
     medications: list[str] = Field(default_factory=list)
     status: Literal["current", "historical", "refused", "mentioned", "none"] = "none"
-    source: Literal["structured", "text", "none"] = "none"
+    source: Literal["structured", "annotation", "text", "none"] = "none"
     confidence: Literal["high", "medium", "low"] = "low"
     confidence_score: float = 0.0
     reasoning: str = ""

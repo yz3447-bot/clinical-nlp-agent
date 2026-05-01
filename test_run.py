@@ -64,7 +64,12 @@ def main():
 
     kb = KnowledgeBase()
     for case in SEED_CASES:
-        kb.add_case(case)
+        kb.add_case(
+            note_id=case["note_id"],
+            text=case["text"],
+            label=case["label"],
+            subtype=case["subtype"],
+        )
     print(f"[RAG] Knowledge base seeded ({kb.get_stats()} cases).\n")
 
     init_evidence_csv()

@@ -35,6 +35,15 @@ logger = get_logger(__name__)
 
 # ─── Data loading ─────────────────────────────────────────────────────────────
 
+# Ground-truth subtype normalization: map annotator typos / non-standard values
+# to the canonical set used by the pipeline (ad | vd | ftd | nsd | na).
+# "fd" is a known typo for "ftd" in this dataset.
+# "other" is ambiguous but closest to "nsd" (non-specific dementia confirmed present).
+_SUBTYPE_NORMALIZE: dict[str, str] = {
+    "fd":    "ftd",
+    "other": "nsd",
+}
+
 _OPTIONAL_COLS = {
     "synthesis_mode":        "unknown",
     "confidence_score_clin": 0.0,
@@ -67,6 +76,15 @@ def load_predictions(path: Path) -> pd.DataFrame:
 
     df["ground_truth"]     = df["ground_truth"].astype(int)
     df["final_prediction"] = df["final_prediction"].astype(int)
+
+    # Normalise subtype values in both ground-truth and prediction columns.
+    # Applies _SUBTYPE_NORMALIZE mapping; leaves unknown values untouched.
+    for col in ("ground_truth_subtype", "subtype"):
+        if col in df.columns:
+            df[col] = (
+                df[col].str.lower().str.strip()
+                       .map(lambda v: _SUBTYPE_NORMALIZE.get(v, v))
+            )
 
     # Inject optional columns added in Stage 8 (may be absent in older CSVs)
     for col, default in _OPTIONAL_COLS.items():

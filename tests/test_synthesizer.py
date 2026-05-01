@@ -167,9 +167,9 @@ class TestComputeScore:
 
 class TestConsensusEarlyExit:
 
-    def test_consensus_positive_skips_llm(self, clin_positive, med_positive, dx_negative):
-        """med + clin both positive → predict 1 without LLM call."""
-        result = run_synthesizer_agent(dx_negative, med_positive, clin_positive, llm=None)
+    def test_consensus_positive_skips_llm(self, clin_positive, med_positive, dx_positive):
+        """All three positive → predict 1 without LLM call."""
+        result = run_synthesizer_agent(dx_positive, med_positive, clin_positive, llm=None)
         assert result.final_prediction == 1
         assert result.synthesis_mode == "consensus_positive"
         assert result.confidence == "high"
@@ -181,10 +181,11 @@ class TestConsensusEarlyExit:
         assert result.final_prediction == 0
         assert result.synthesis_mode == "consensus_negative"
         assert result.confidence == "high"
+        assert result.confidence_correction is None
         assert result.subtype == "na"
 
-    def test_consensus_positive_returns_required_fields(self, clin_positive, med_positive, dx_negative):
-        result = run_synthesizer_agent(dx_negative, med_positive, clin_positive, llm=None)
+    def test_consensus_positive_returns_required_fields(self, clin_positive, med_positive, dx_positive):
+        result = run_synthesizer_agent(dx_positive, med_positive, clin_positive, llm=None)
         # Pydantic validation confirms all fields exist, have correct types, and valid Literal values
         validated = SynthesizerOutput(**result.model_dump())
         assert validated.final_prediction == result.final_prediction
@@ -194,37 +195,40 @@ class TestConsensusEarlyExit:
 
 class TestConfidenceCorrection:
 
-    def _base_result(self, confidence="high"):
+    def _base_result(self, confidence="high", contributing=None):
         return {
-            "final_prediction": 1,
-            "subtype": "ad",
-            "confidence": confidence,
-            "discrepancy": None,
-            "overruled_agents": [],
+            "final_prediction":   1,
+            "subtype":            "ad",
+            "confidence":         confidence,
+            "discrepancy":        None,
+            "overruled_agents":   [],
+            "contributing_agents": contributing if contributing is not None else ["ClinTextAgent"],
             "confidence_correction": None,
         }
 
-    def test_rule1_discrepancy_plus_overruled_downgrades_high_to_medium(
+    # Rule A ─────────────────────────────────────────────────────────────────
+
+    def test_rule_a_overruled_downgrades_high_to_medium(
         self, clin_positive, med_negative, dx_positive
     ):
         result = self._base_result("high")
-        result["discrepancy"] = "ClinTextAgent and MedicationAgent disagreed."
         result["overruled_agents"] = ["MedicationAgent: overruled due to text evidence"]
         out = _apply_confidence_correction(result, clin_positive, med_negative, dx_positive)
         assert out["confidence"] == "medium"
-        assert "confidence_correction" in out
+        assert "overruled agents present" in out["confidence_correction"]
 
-    def test_rule1_does_not_downgrade_medium(
+    def test_rule_a_does_not_downgrade_medium(
         self, clin_positive, med_negative, dx_positive
     ):
         result = self._base_result("medium")
-        result["discrepancy"] = "some discrepancy"
         result["overruled_agents"] = ["MedicationAgent: reason"]
         out = _apply_confidence_correction(result, clin_positive, med_negative, dx_positive)
-        assert out["confidence"] == "medium"  # already medium, no change
+        assert out["confidence"] == "medium"  # already medium — Rule A only caps high→medium
 
-    def test_rule2_weak_evidence_downgrades_to_low(
-        self, dx_negative, med_negative
+    # Rule B ─────────────────────────────────────────────────────────────────
+
+    def test_rule_b_all_weak_contributing_downgrades_to_low(
+        self, med_negative, dx_negative
     ):
         clin_weak = ClinTextAgentOutput(
             symptoms_found=True,
@@ -232,27 +236,44 @@ class TestConfidenceCorrection:
             confidence_score=0.2,
             evidence_list=["one vague mention"],
         )
-        result = self._base_result("high")
+        result = self._base_result("high", contributing=["ClinTextAgent"])
         out = _apply_confidence_correction(result, clin_weak, med_negative, dx_negative)
         assert out["confidence"] == "low"
+        assert "all contributing agents have weak evidence" in out["confidence_correction"]
 
-    def test_rule3_sparse_evidence_downgrades_high_to_low(
-        self, clin_negative, med_negative, dx_positive
+    # Rule C ─────────────────────────────────────────────────────────────────
+
+    def test_rule_c_positive_no_contributing_forces_low(
+        self, clin_negative, med_negative, dx_negative
     ):
-        clin_sparse = ClinTextAgentOutput(
+        result = self._base_result("high", contributing=[])
+        out = _apply_confidence_correction(result, clin_negative, med_negative, dx_negative)
+        assert out["confidence"] == "low"
+        assert "positive prediction with no contributing agents" in out["confidence_correction"]
+
+    # Stacking ────────────────────────────────────────────────────────────────
+
+    def test_rule_a_and_b_stack(self, med_negative, dx_negative):
+        """Rule A fires first (high→medium), then Rule B fires (medium→low)."""
+        clin_weak = ClinTextAgentOutput(
             symptoms_found=True,
             confidence="low",
             confidence_score=0.2,
-            evidence_list=["one item"],  # < 2
+            evidence_list=["vague mention"],
         )
-        result = self._base_result("high")
-        out = _apply_confidence_correction(result, clin_sparse, med_negative, dx_positive)
+        result = self._base_result("high", contributing=["ClinTextAgent"])
+        result["overruled_agents"] = ["DiagnosisAgent: overruled"]
+        out = _apply_confidence_correction(result, clin_weak, med_negative, dx_negative)
         assert out["confidence"] == "low"
+        assert "overruled agents present" in out["confidence_correction"]
+        assert "all contributing agents have weak evidence" in out["confidence_correction"]
+
+    # No correction ───────────────────────────────────────────────────────────
 
     def test_no_correction_when_strong_evidence(
         self, clin_positive, med_positive, dx_positive
     ):
-        result = self._base_result("high")
+        result = self._base_result("high", contributing=["ClinTextAgent", "MedicationAgent"])
         out = _apply_confidence_correction(result, clin_positive, med_positive, dx_positive)
         assert out["confidence"] == "high"
         assert out.get("confidence_correction") is None
@@ -298,9 +319,9 @@ class TestSubtypeValidation:
     VALID_SUBTYPES = {"ad", "vd", "ftd", "nsd", "na"}
 
     def test_consensus_positive_returns_valid_subtype(
-        self, clin_positive, med_positive, dx_negative
+        self, clin_positive, med_positive, dx_positive
     ):
-        result = run_synthesizer_agent(dx_negative, med_positive, clin_positive, llm=None)
+        result = run_synthesizer_agent(dx_positive, med_positive, clin_positive, llm=None)
         assert result.subtype in self.VALID_SUBTYPES
 
     def test_consensus_negative_returns_na(

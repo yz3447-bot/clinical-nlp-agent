@@ -1,7 +1,7 @@
 """
 Medication Agent — Layer 2 (pharmacological confirmation, weight +3).
-Clinical pharmacist reads the FULL clinical note for AD/ADRD medications.
-Structured columns are unreliable in this dataset (all zeros) — free text is primary.
+Phase 1: human annotation column (fast path).
+Phase 2: LLM free-text scan of medication sections.
 """
 
 import json
@@ -12,14 +12,40 @@ from schemas import MedicationAgentOutput
 
 logger = get_logger(__name__)
 
-# Structured column names to check first (Phase 1 fast path)
-AD_MED_COLUMNS = [
-    "donepezil", "denepezil",
-    "memantine",
+
+def _extract_med_sections(text: str) -> str:
+    """
+    Extract medication-related sections from a clinical note.
+    Targets: Discharge Medications, Medications on Admission/Discharge,
+             Medication Reconciliation, Home Medications.
+    Falls back to the first 2000 chars when no section is found.
+    """
+    patterns = [
+        r"(?i)(discharge\s+medications?.*?)(?=\n[A-Z][A-Za-z\s&/]{2,}:\s*\n|\Z)",
+        r"(?i)(medications?\s+on\s+(?:admission|discharge).*?)(?=\n[A-Z][A-Za-z\s&/]{2,}:\s*\n|\Z)",
+        r"(?i)(medication\s+reconciliation.*?)(?=\n[A-Z][A-Za-z\s&/]{2,}:\s*\n|\Z)",
+        r"(?i)(home\s+medications?.*?)(?=\n[A-Z][A-Za-z\s&/]{2,}:\s*\n|\Z)",
+    ]
+
+    extracted = []
+    for pattern in patterns:
+        matches = re.findall(pattern, text, re.DOTALL)
+        extracted.extend(m.strip() for m in matches if m.strip())
+
+    if extracted:
+        combined = "\n\n".join(dict.fromkeys(extracted))
+        return combined[:3000]
+
+    return text[:2000]
+
+
+_ANNOTATION_MED_KEYWORDS = frozenset({
+    "donepezil", "aricept",
+    "memantine", "namenda",
+    "rivastigmine", "exelon",
+    "galantamine", "razadyne",
     "tacrine",
-    "rivastigmine",
-    "galantamine",
-]
+})
 
 MED_TEXT_PROMPT = """You are a clinical pharmacist specializing in dementia care.
 
@@ -63,18 +89,26 @@ Output ONLY this JSON:
 }}"""
 
 
-def _compute_confidence_score(meds_found: bool, source: str, status: str) -> float:
+def _compute_confidence_score(
+    meds_found: bool,
+    source: str,
+    status: str,
+    medications: list[str] | None = None,
+) -> float:
     """Rule-based confidence score derived from medication source and status."""
     if not meds_found:
         return 0.0
-    if source == "structured":
+    if source in ("annotation", "structured"):
         return 0.9
     if status == "current":
-        return 0.7
-    if status == "historical":
+        meds_lower = " ".join(m.lower() for m in (medications or []))
+        if any(kw in meds_lower for kw in _ANNOTATION_MED_KEYWORDS):
+            return 0.75
+        return 0.6
+    if status in ("historical", "refused"):
         return 0.2
-    if status in ("refused", "mentioned"):
-        return 0.1
+    if status == "mentioned":
+        return 0.05
     return 0.0
 
 
@@ -95,35 +129,26 @@ def _parse_llm_json(content: str) -> dict | None:
 def run_medication_agent(row: dict, llm=None) -> MedicationAgentOutput:
     """
     Args:
-        row: dict with medication flag columns and 'text' key (full clinical note)
+        row: dict with 'ad_med_annotation' (human-annotated med text) and 'text' key
         llm: LangChain LLM instance
     Returns:
         MedicationAgentOutput validated instance
     """
-    # ── Phase 1: structured binary columns (fast path) ────────────────────────
-    structured_meds = []
-    for col in AD_MED_COLUMNS:
-        if col not in row:
-            continue
-        try:
-            if int(float(str(row[col]))) == 1:
-                canonical = "donepezil" if col == "denepezil" else col
-                if canonical not in structured_meds:
-                    structured_meds.append(canonical)
-        except (ValueError, TypeError):
-            pass
-
-    if structured_meds:
-        return MedicationAgentOutput(
-            meds_found=True,
-            medications=structured_meds,
-            status="current",
-            source="structured",
-            confidence="high",
-            confidence_score=_compute_confidence_score(True, "structured", "current"),
-            reasoning=f"Structured columns flag: {', '.join(structured_meds)}.",
-            assessment=f"Active prescription confirmed via structured data: {', '.join(structured_meds)}.",
-        )
+    # ── Phase 1: human annotation column (fast path) ─────────────────────────
+    annotation = str(row.get("ad_med_annotation", "") or "").lower()
+    if annotation.strip():
+        found_meds = [kw for kw in _ANNOTATION_MED_KEYWORDS if kw in annotation]
+        if found_meds:
+            return MedicationAgentOutput(
+                meds_found=True,
+                medications=found_meds,
+                status="current",
+                source="annotation",
+                confidence="high",
+                confidence_score=_compute_confidence_score(True, "annotation", "current"),
+                reasoning=f"Human annotation confirms AD medication(s): {', '.join(found_meds)}",
+                assessment=f"Active AD medication confirmed via human annotation: {', '.join(found_meds)}",
+            )
 
     # ── Phase 2: LLM full-text scan ───────────────────────────────────────────
     text = str(row.get("text", "") or "")
@@ -139,8 +164,11 @@ def run_medication_agent(row: dict, llm=None) -> MedicationAgentOutput:
             assessment="Cannot assess — no clinical text.",
         )
 
+    med_text = _extract_med_sections(text)
+    used_extraction = len(med_text) < len(text)
+
     try:
-        response = llm.invoke(MED_TEXT_PROMPT.format(text=text))
+        response = llm.invoke(MED_TEXT_PROMPT.format(text=med_text))
         content  = response.content if hasattr(response, "content") else str(response)
         parsed   = _parse_llm_json(content)
 
@@ -152,14 +180,15 @@ def run_medication_agent(row: dict, llm=None) -> MedicationAgentOutput:
                           else "none")
             conf_raw   = str(parsed.get("confidence", "low")).lower().strip()
             conf       = conf_raw if conf_raw in ("high", "medium", "low") else "low"
+            prefix = "[Section extracted] " if used_extraction else "[Full text] "
             return MedicationAgentOutput(
                 meds_found=found,
                 medications=parsed.get("medications", []),
                 status=status,
                 source="text",
                 confidence=conf,
-                confidence_score=_compute_confidence_score(found, "text", status),
-                reasoning=str(parsed.get("reasoning", "")),
+                confidence_score=_compute_confidence_score(found, "text", status, parsed.get("medications", [])),
+                reasoning=prefix + str(parsed.get("reasoning", "")),
                 assessment=str(parsed.get("assessment", "")),
             )
     except Exception as e:
