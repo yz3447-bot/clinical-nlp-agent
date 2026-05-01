@@ -1,0 +1,1028 @@
+note_id,subject_id,ground_truth,ground_truth_subtype,dx_found,meds_found,symptoms_found,final_prediction,subtype,confidence,synthesis_mode,contributing_agents,causal_chain,discrepancy,overruled_agents,reason,confidence_score_clin,confidence_score_med,confidence_score_dx,confidence_correction,latency_ms,llm_calls,estimated_cost_usd_proxy,degraded_mode,agent_errors,run_id,timestamp,text_snippet
+18922134-DS-10,18922134,1,ad,1,1,1,1,nsd,high,consensus_positive,"[""ClinTextAgent"", ""MedicationAgent"", ""DiagnosisAgent""]","All specialist agents reached consensus: MedicationAgent, ClinTextAgent, and DiagnosisAgent all positive. LLM arbitration skipped.",,[],Consensus positive — medication and clinical evidence both confirmed.,0.9,0.95,0.9,,8428.52,2,0.004,0,[],aef0c2ea-447d-4561-93a9-74d628c824cd,2026-05-01T19:19:08Z," 
+Name:  ___                    Unit No:   ___
+ 
+Admission Date:  ___              Discharge Date:   ___
+ 
+Date of Birth:  ___             Sex:   M
+ 
+Service: MEDICINE
+ 
+Allergies: 
+Norvasc / Mango Fl"
+16059144-DS-24,16059144,1,nsd,1,0,1,1,nsd,high,llm_arbitration,"[""ClinTextAgent"", ""DiagnosisAgent""]","ClinTextAgent identified multiple explicit mentions of 'dementia' in the History of Present Illness, Past Medical History, Active Issues, and Discharge Diagnosis, along with consistent cognitive impairment documented in physical exams and discharge condition. DiagnosisAgent corroborated this with explicit documentation of 'underlying dementia' and 'Dementia with delirium' in the active issues and discharge diagnosis, matching relevant ICD codes. MedicationAgent found no AD/ADRD specific medications, which is noted but does not negate the strong clinical and coding evidence for dementia, as many patients with dementia are not on these medications due to various factors. Based on the overwhelming explicit physician documentation and consistent clinical findings, a diagnosis of AD/ADRD is confirmed. Regarding subtype, while the patient has significant vascular risk factors (Type 2 diabetes, hypertension, hypercholesterolemia, ischemic colitis), the clinical note does not provide specific details such as a clear stepwise decline, focal neurological deficits, or imaging findings directly linking vascular events to the cognitive decline to definitively classify it as vascular dementia. There are also no specific features to classify it as Alzheimer's or Frontotemporal dementia. Therefore, 'nsd' is the most appropriate subtype.","MedicationAgent reported no AD/ADRD specific medications. This is not a direct contradiction but a lack of supporting evidence from that specific domain. This was resolved by acknowledging that the absence of these medications does not overrule the strong explicit clinical and coding documentation of dementia, as medication use for dementia is not universal.",[],"The patient has a clearly documented history of underlying chronic dementia, explicitly stated in multiple sections of the clinical note and confirmed by coding, with insufficient detail to classify a specific subtype.",0.9,0.3,0.9,,25247.64,4,0.008,0,[],aef0c2ea-447d-4561-93a9-74d628c824cd,2026-05-01T19:19:33Z," 
+Name:  ___                  Unit No:   ___
+ 
+Admission Date:  ___              Discharge Date:   ___
+ 
+Date of Birth:  ___             Sex:   F
+ 
+Service: MEDICINE
+ 
+Allergies: 
+Enalapril / Univasc
+"
+12596965-DS-9,12596965,0,na,0,0,0,0,na,high,consensus_negative,[],All specialist agents reached consensus: no AD/ADRD evidence found. LLM arbitration skipped.,,[],"Consensus negative — no medication, symptom, or ICD evidence found.",0.5,0.3,0.85,,8327.91,2,0.004,0,[],aef0c2ea-447d-4561-93a9-74d628c824cd,2026-05-01T19:19:41Z," 
+Name:  ___             Unit No:   ___
+ 
+Admission Date:  ___              Discharge Date:   ___
+ 
+Date of Birth:  ___             Sex:   F
+ 
+Service: NEUROSURGERY
+ 
+Allergies: 
+No Known Allergies / "
+10404360-DS-25,10404360,1,nsd,1,0,1,1,vd,high,llm_arbitration,"[""ClinTextAgent"", ""DiagnosisAgent""]","ClinTextAgent identified explicit documentation of 'dementia' in the patient's history and noted neuroimaging findings (moderate temporal lobe atrophy, chronic small vessel ischemic disease) consistent with neurodegenerative and vascular cognitive impairment. DiagnosisAgent corroborated the presence of chronic dementia by identifying explicit documentation ('h/o ... dementia') in the Brief Hospital Course and a corresponding diagnostic code (29420). MedicationAgent reported no AD/ADRD specific medications, which is a negative finding but does not negate the strong positive evidence from other sources. The clinical note further supports the diagnosis with persistent 'episodes of mild confusion' at baseline and objective MRI findings. Based on the explicit mention of 'chronic small vessel ischemic disease' on MRI and the patient's extensive history of cardiovascular disease (CAD, paroxysmal afib, hypercholesterolemia), the subtype is classified as vascular dementia.","MedicationAgent reported no AD/ADRD specific medications, which is a negative finding. However, this does not contradict the strong positive evidence for dementia from explicit physician documentation, diagnostic codes, and neuroimaging, as many patients with dementia are not on these medications for various clinical reasons.",[],"The patient has chronic dementia, explicitly documented in the history, supported by objective neuroimaging showing moderate temporal lobe atrophy and chronic small vessel ischemic disease, and consistent with her cardiovascular risk factors, classifying it as vascular dementia.",0.9,0.3,0.9,,26385.85,4,0.008,0,[],aef0c2ea-447d-4561-93a9-74d628c824cd,2026-05-01T19:20:08Z," 
+Name:  ___              Unit No:   ___
+ 
+Admission Date:  ___              Discharge Date:   ___
+ 
+Date of Birth:  ___             Sex:   F
+ 
+Service: MEDICINE
+ 
+Allergies: 
+No Known Allergies / Adv"
+19917861-DS-10,19917861,1,nsd,1,0,1,1,ftd,high,llm_arbitration,"[""ClinTextAgent"", ""MedicationAgent"", ""DiagnosisAgent""]","DiagnosisAgent identified explicit documentation of 'Dementia' and specific neurodegenerative disorders (Cortical Basal Degeneration, Progressive Supranuclear Palsy) in the Past Medical History, Brief Hospital Course, and Discharge Diagnoses, with high confidence. ClinTextAgent corroborated these findings, noting the patient's history of these neurodegenerative conditions (tauopathies, forms of AD/ADRD) and documented cognitive impairment (A&Ox1, disorientation to year, non-fluent/stuttering speech), with high confidence. MedicationAgent correctly identified the absence of AD/ADRD specific medications; however, the clinical note clarifies that the patient's neurodegenerative disorder is 'minimally responsive to medications' and 'Patient has been tried on sinemet without improvement in the past,' explaining the lack of current AD/ADRD medication use and thus not contradicting the diagnosis. Based on the overwhelming and consistent evidence from the clinical note and the specialist reports, the patient clearly has AD/ADRD. For subtype classification, Cortical Basal Degeneration and Progressive Supranuclear Palsy are both tauopathies and atypical parkinsonian syndromes that fall within the spectrum of Frontotemporal Dementia (FTD) disorders, especially given the documented language problems ('non-fluent', 'stuttering speech') and general cognitive impairment.","MedicationAgent's finding of no AD/ADRD medications was not a true discrepancy, as the clinical note provided context that the patient's condition is minimally responsive to such medications and previous trials were unsuccessful, thus explaining the absence of these medications.",[],"The patient has a well-documented history and current diagnosis of dementia secondary to specific neurodegenerative tauopathies (Cortical Basal Degeneration and Progressive Supranuclear Palsy), which are classified within the Frontotemporal Dementia spectrum due to their pathology and clinical presentation including language impairment.",0.9,0.3,0.9,,30022.68,4,0.008,0,[],aef0c2ea-447d-4561-93a9-74d628c824cd,2026-05-01T19:20:38Z," 
+Name:  ___              Unit No:   ___
+ 
+Admission Date:  ___              Discharge Date:   ___
+ 
+Date of Birth:  ___             Sex:   M
+ 
+Service: MEDICINE
+ 
+Allergies: 
+No Known Allergies / Adv"
+16754064-DS-19,16754064,0,na,0,0,0,0,na,high,consensus_negative,[],All specialist agents reached consensus: no AD/ADRD evidence found. LLM arbitration skipped.,,[],"Consensus negative — no medication, symptom, or ICD evidence found.",0.75,0.3,0.85,,7632.91,2,0.004,0,[],aef0c2ea-447d-4561-93a9-74d628c824cd,2026-05-01T19:20:45Z," 
+Name:  ___          Unit No:   ___
+ 
+Admission Date:  ___              Discharge Date:   ___
+ 
+Date of Birth:  ___             Sex:   M
+ 
+Service: ORTHOPAEDICS
+ 
+Allergies: 
+Oxycodone
+ 
+Attending: _"
+14728179-DS-7,14728179,1,nsd,1,0,1,1,nsd,high,llm_arbitration,"[""ClinTextAgent"", ""DiagnosisAgent""]","1. ClinTextAgent identified multiple explicit mentions of 'dementia' and 'Age related Dementia' in the patient's history, problem list, and discharge diagnosis, with high confidence. It also noted cognitive symptoms ('Oriented x1', 'unable to recollect history') directly attributed to dementia, and the acute event (tack ingestion) as 'secondary to dementia'. This constitutes strong evidence of an active, chronic AD/ADRD condition. 
+2. DiagnosisAgent identified ICD code F0390 (Unspecified dementia) as a current diagnosis, with medium confidence, and supported it with the discharge mental status of 'Confused - sometimes'. This further corroborates the presence of chronic AD/ADRD. 
+3. MedicationAgent reported no AD/ADRD specific medications were found. This finding does not contradict the diagnosis of dementia, as many patients with dementia may not be on these medications for various reasons (e.g., type of dementia, stage, side effects, patient/family preference). 
+4. Based on the overwhelming and consistent evidence from the clinical note itself, strongly supported by ClinTextAgent and DiagnosisAgent, the patient clearly has a current diagnosis of AD/ADRD. 
+5. For subtype classification, while 'Age related Dementia' is mentioned, the note lacks specific clinical details (e.g., specific cognitive deficits, progression, imaging) to definitively classify it as Alzheimer's, Vascular, or Frontotemporal dementia. Therefore, 'Non-specific dementia' is the most appropriate subtype.",,[],"The patient has a well-documented history of 'dementia' and 'Age related Dementia' in the clinical note, supported by cognitive impairment (oriented x1, confused sometimes) and an ICD code for unspecified dementia, confirming a current diagnosis of non-specific dementia.",0.9,0.3,0.7,,22855.88,4,0.008,0,[],aef0c2ea-447d-4561-93a9-74d628c824cd,2026-05-01T19:21:08Z," 
+Name:  ___                   Unit No:   ___
+ 
+Admission Date:  ___              Discharge Date:   ___
+ 
+Date of Birth:  ___             Sex:   F
+ 
+Service: MEDICINE
+ 
+Allergies: 
+Celebrex
+ 
+Attendin"
+17904720-DS-11,17904720,0,na,0,0,0,0,na,high,consensus_negative,[],All specialist agents reached consensus: no AD/ADRD evidence found. LLM arbitration skipped.,,[],"Consensus negative — no medication, symptom, or ICD evidence found.",0.75,0.3,0.85,,6661.01,2,0.004,0,[],aef0c2ea-447d-4561-93a9-74d628c824cd,2026-05-01T19:21:15Z," 
+Name:  ___                 Unit No:   ___
+ 
+Admission Date:  ___              Discharge Date:   ___
+ 
+Date of Birth:  ___             Sex:   M
+ 
+Service: MEDICINE
+ 
+Allergies: 
+Levofloxacin
+ 
+Attend"
+15314851-DS-18,15314851,1,nsd,1,0,1,1,nsd,high,llm_arbitration,"[""ClinTextAgent"", ""DiagnosisAgent""]","1. ClinTextAgent identified multiple explicit mentions of 'dementia' and 'baseline dementia' in the History of Present Illness, Past Medical History, Brief Hospital Course, and Discharge Physical Exam, indicating a chronic, pre-existing neurocognitive condition. 2. DiagnosisAgent confirmed the presence of an ICD-10 code F0390 (Unspecified dementia) and linked it directly to the explicit documentation of 'baseline dementia' in the Brief Hospital Course. 3. MedicationAgent correctly identified the absence of specific AD/ADRD medications (e.g., Donepezil, Memantine). While this is a factual finding, the absence of medication does not negate the strong, explicit clinical documentation of dementia from the other agents and the clinical note itself, as many patients with dementia may not be on these medications for various reasons. 4. Based on the overwhelming and consistent explicit documentation of 'baseline dementia' throughout the clinical note, supported by both the neurology and coding specialists, the patient is definitively diagnosed with AD/ADRD. 5. However, the clinical note lacks specific details regarding the type of cognitive decline, progression, or associated features (e.g., history of strokes, specific behavioral changes, age of onset) to classify a specific subtype of dementia. Therefore, the subtype is classified as non-specific dementia (nsd).","MedicationAgent found no AD/ADRD specific medications. This finding is accurate but does not contradict the diagnosis of dementia, as the absence of these medications does not rule out the condition, especially given the strong explicit documentation of 'baseline dementia' from other sources.",[],"The patient has chronic dementia, explicitly documented as 'baseline dementia' in multiple sections of the clinical note and supported by an ICD-10 code, despite the absence of specific AD/ADRD medications, but the subtype is non-specific due to lack of further clinical detail.",0.9,0.3,0.9,,19437.58,4,0.008,0,[],aef0c2ea-447d-4561-93a9-74d628c824cd,2026-05-01T19:21:34Z," 
+Name:  ___                  Unit No:   ___
+ 
+Admission Date:  ___              Discharge Date:   ___
+ 
+Date of Birth:  ___             Sex:   F
+ 
+Service: SURGERY
+ 
+Allergies: 
+Penicillins
+ 
+Attendi"
+11368669-DS-5,11368669,0,na,0,0,0,0,na,high,consensus_negative,[],All specialist agents reached consensus: no AD/ADRD evidence found. LLM arbitration skipped.,,[],"Consensus negative — no medication, symptom, or ICD evidence found.",0.5,0.3,0.85,,8811.11,2,0.004,0,[],aef0c2ea-447d-4561-93a9-74d628c824cd,2026-05-01T19:21:43Z," 
+Name:  ___           ___ No:   ___
+ 
+Admission Date:  ___              Discharge Date:   ___
+ 
+Date of Birth:  ___             Sex:   M
+ 
+Service: MEDICINE
+ 
+Allergies: 
+No Known Allergies / Adverse"
+16749509-DS-20,16749509,1,nsd,1,0,1,1,nsd,high,llm_arbitration,"[""ClinTextAgent"", ""DiagnosisAgent""]","ClinTextAgent identified multiple explicit mentions of 'dementia' in the History of Present Illness, Past Medical History, and Assessment & Plan, along with supporting cognitive symptoms like 'A&O to self, hospital, month and year with prompting' and 'Improved word finding difficulties compared to transfer,' leading to a high-confidence assessment of chronic dementia. DiagnosisAgent corroborated this with a matched ICD code (29420) and consistent documentation in the Past Medical History and Active Issues, also with high confidence. My review of the complete clinical note confirmed these findings, noting 'dementia' as a pre-existing, chronic condition with active management considerations (e.g., holding deliriogenic medications due to 'underlying dementia'). MedicationAgent reported no specific AD/ADRD treatment medications (Donepezil, Memantine, etc.), which is a factual finding but does not negate the overwhelming positive evidence for dementia, as many patients with dementia are not on these specific drugs for various clinical reasons. Therefore, the patient clearly has a diagnosis of dementia. Regarding subtype, while the patient has significant vascular risk factors (DM, HTN, HLD, CKD) and an acute vascular event (intrathalamic hemorrhage), the clinical note does not provide sufficient detail to definitively classify the *pre-existing* dementia as vascular dementia or any other specific subtype. The term 'dementia' is used generally, and specific symptoms like 'word finding difficulties' are non-specific. Thus, 'non-specific dementia' is the most appropriate classification.","MedicationAgent's finding of no specific AD/ADRD medications is noted, but it does not contradict the diagnosis of dementia. The absence of these specific medications does not negate the overwhelming positive evidence from other sources and the clinical note itself, which explicitly documents dementia and its management. The agent's low rule-based confidence score (0.3) for this finding also suggests it should be given less weight in the overall diagnostic decision.",[],"The patient has a clearly documented chronic diagnosis of dementia in the past medical history, history of present illness, and active issues, supported by cognitive symptoms and management considerations, but insufficient information is available to classify a specific subtype.",0.9,0.3,0.9,,26884.6,4,0.008,0,[],aef0c2ea-447d-4561-93a9-74d628c824cd,2026-05-01T19:22:10Z," 
+Name:  ___                  Unit No:   ___
+ 
+Admission Date:  ___              Discharge Date:   ___
+ 
+Date of Birth:  ___             Sex:   M
+ 
+Service: MEDICINE
+ 
+Allergies: 
+No Known Allergies /"
+14477122-DS-14,14477122,1,ad,1,1,1,1,nsd,high,consensus_positive,"[""ClinTextAgent"", ""MedicationAgent"", ""DiagnosisAgent""]","All specialist agents reached consensus: MedicationAgent, ClinTextAgent, and DiagnosisAgent all positive. LLM arbitration skipped.",,[],Consensus positive — medication and clinical evidence both confirmed.,0.9,0.95,0.9,,12099.3,2,0.004,0,[],aef0c2ea-447d-4561-93a9-74d628c824cd,2026-05-01T19:22:22Z," 
+Name:  ___                Unit No:   ___
+ 
+Admission Date:  ___              Discharge Date:   ___
+ 
+Date of Birth:  ___             Sex:   F
+ 
+Service: MEDICINE
+ 
+Allergies: 
+Nitroglycerin
+ 
+Attend"
+11068845-DS-9,11068845,1,nsd,1,1,0,1,nsd,medium,llm_arbitration,"[""MedicationAgent"", ""DiagnosisAgent""]","MedicationAgent correctly identified Donepezil HCL 10mg daily as a current medication, which is a cholinesterase inhibitor used for AD/ADRD. The clinical note explicitly documents 'Dementia' in the Past Medical History and the History of Present Illness, providing strong physician documentation of the condition. DiagnosisAgent identified ICD code 29420, which corresponds to dementia. The combination of explicit physician documentation and a specific AD/ADRD medication provides high confidence for a current AD/ADRD diagnosis. However, the clinical note lacks sufficient detail regarding the onset, progression, or specific symptomology to classify the dementia into a specific subtype (e.g., Alzheimer's, Vascular, Frontotemporal). Therefore, it is classified as non-specific dementia.","DiagnosisAgent identified ICD code 29420 but concluded `is_current_diagnosis: False` based on the absence of AD/ADRD in the discharge diagnosis and the patient's acute death. This conclusion was overruled because the clinical note explicitly documents 'Dementia' in the Past Medical History and History of Present Illness, and lists Donepezil as a current medication, clearly indicating a chronic, current condition despite the acute nature of the admission and death.","[""ClinTextAgent: Agent error, unparseable response, defaulted negative. The clinical note clearly documents dementia."", ""DiagnosisAgent: Its conclusion that `is_current_diagnosis: False` was overruled. While the discharge diagnosis focused on the acute event, the patient's Past Medical History and History of Present Illness explicitly state 'Dementia,' and Donepezil is listed as a current medication, confirming a chronic, current AD/ADRD diagnosis.""]","The patient has AD/ADRD based on explicit documentation of 'Dementia' in the Past Medical History and History of Present Illness, and current prescription of Donepezil, but the specific subtype cannot be determined from the available clinical information.",0.0,0.75,0.85,Downgraded: overruled agents present,23005.43,4,0.008,1,"[""ClinTextAgent""]",aef0c2ea-447d-4561-93a9-74d628c824cd,2026-05-01T19:22:45Z," 
+Name:  ___             ___ No:   ___
+ 
+Admission Date:  ___              Discharge Date:   ___
+ 
+Date of Birth:  ___             Sex:   F
+ 
+Service: NEUROSURGERY
+ 
+Allergies: 
+No Known Allergies / A"
+11866915-DS-5,11866915,0,na,0,0,0,0,na,high,consensus_negative,[],All specialist agents reached consensus: no AD/ADRD evidence found. LLM arbitration skipped.,,[],"Consensus negative — no medication, symptom, or ICD evidence found.",0.75,0.3,0.85,,8311.44,2,0.004,0,[],aef0c2ea-447d-4561-93a9-74d628c824cd,2026-05-01T19:22:53Z," 
+Name:  ___                    Unit No:   ___
+ 
+Admission Date:  ___              Discharge Date:   ___
+ 
+Date of Birth:  ___             Sex:   M
+ 
+Service: NEUROSURGERY
+ 
+Allergies: 
+Iodinated Cont"
+19139995-DS-5,19139995,1,nsd,1,1,1,1,nsd,high,consensus_positive,"[""ClinTextAgent"", ""MedicationAgent"", ""DiagnosisAgent""]","All specialist agents reached consensus: MedicationAgent, ClinTextAgent, and DiagnosisAgent all positive. LLM arbitration skipped.",,[],Consensus positive — medication and clinical evidence both confirmed.,0.9,0.95,0.9,,12830.68,2,0.004,0,[],aef0c2ea-447d-4561-93a9-74d628c824cd,2026-05-01T19:23:06Z," 
+Name:  ___                   Unit No:   ___
+ 
+Admission Date:  ___              Discharge Date:   ___
+ 
+Date of Birth:  ___             Sex:   F
+ 
+Service: CARDIOTHORACIC
+ 
+Allergies: 
+No Known Alle"
+10281634-DS-8,10281634,0,na,0,0,0,0,na,high,consensus_negative,[],All specialist agents reached consensus: no AD/ADRD evidence found. LLM arbitration skipped.,,[],"Consensus negative — no medication, symptom, or ICD evidence found.",0.75,0.3,0.85,,6845.9,2,0.004,0,[],aef0c2ea-447d-4561-93a9-74d628c824cd,2026-05-01T19:23:13Z," 
+Name:  ___         Unit No:   ___
+ 
+Admission Date:  ___              Discharge Date:   ___
+ 
+Date of Birth:  ___             Sex:   F
+ 
+Service: OBSTETRICS/GYNECOLOGY
+ 
+Allergies: 
+codeine
+ 
+Attend"
+12112670-DS-7,12112670,1,nsd,1,0,1,1,nsd,high,llm_arbitration,"[""ClinTextAgent"", ""DiagnosisAgent""]","ClinTextAgent identified chronic cognitive impairment, likely dementia, based on explicit documentation of 'delirium on presumed dementia,' family concerns about memory over the past year, and persistent disorientation at discharge. DiagnosisAgent found a current F0390 code (unspecified dementia) which was strongly supported by the 'delirium on presumed dementia' statement in the brief hospital course and ongoing memory issues. MedicationAgent found no AD/ADRD specific medications, which is a negative finding but does not contradict the strong clinical and coding evidence of dementia. The clinical note explicitly states 'delirium on presumed dementia' in the Brief Hospital Course, indicating an underlying chronic cognitive condition. This is further supported by the Past Medical History listing 'Possible dementia, planned neurocognitive assessment' and the discharge instructions confirming a 'Neuro-cognitive appointment made on discharge for testing given c/f dementia'. The patient's persistent disorientation (A&Ox2, not oriented to date) and family's long-standing concerns about memory reinforce the diagnosis of chronic cognitive impairment. While the acute confusion was attributed to toxic metabolic encephalopathy and UTI, the underlying 'presumed dementia' is clearly documented. Given the strong evidence for dementia but insufficient detail to confidently assign a specific subtype (e.g., clear stepwise decline for vascular dementia), 'nsd' is appropriate.","MedicationAgent reported no AD/ADRD specific medications, which is a negative finding. However, this does not contradict the strong clinical and coding evidence for dementia, as a patient can have dementia without being on specific medications, especially if it is newly suspected or not yet severe enough for pharmacotherapy.",[],"The patient has chronic cognitive impairment, likely dementia, as evidenced by explicit physician documentation of 'delirium on presumed dementia,' family history of memory concerns, persistent disorientation, and a planned neurocognitive assessment, with insufficient information to classify a specific subtype.",0.35,0.3,0.9,,27087.88,4,0.008,0,[],aef0c2ea-447d-4561-93a9-74d628c824cd,2026-05-01T19:23:40Z," 
+Name:  ___                Unit No:   ___
+ 
+Admission Date:  ___              Discharge Date:   ___
+ 
+Date of Birth:  ___             Sex:   F
+ 
+Service: MEDICINE
+ 
+Allergies: 
+oxycodone / hydrocodon"
+14799868-DS-22,14799868,1,nsd,1,0,1,1,nsd,high,llm_arbitration,"[""ClinTextAgent"", ""DiagnosisAgent""]","ClinTextAgent identified explicit physician documentation of 'Delirium on Dementia' in the hospital course and 'Dementia' as a secondary discharge diagnosis, along with a documented baseline cognitive status of A&Ox2 (not oriented to year) and a historical allergy to Aricept. DiagnosisAgent corroborated this with the presence of 'Dementia' in the discharge diagnosis and ICD code 29420, supported by the discharge mental status of 'Confused - sometimes'. MedicationAgent accurately reported no currently prescribed AD/ADRD medications, but this does not negate the diagnosis given the strong explicit physician documentation and the patient's Aricept allergy. Therefore, chronic dementia is clearly present. Subtype classification is non-specific as there is insufficient clinical detail to definitively classify it as Alzheimer's, Vascular, or Frontotemporal dementia, despite the presence of vascular risk factors.","MedicationAgent reported no currently prescribed AD/ADRD medications, which is factually correct. However, this finding does not contradict the diagnosis of chronic dementia, as the patient has a documented allergy to Aricept (a cholinesterase inhibitor), which likely explains the absence of current treatment. The explicit physician diagnoses and historical medication allergy provide stronger evidence for chronic dementia.",[],"The patient has a clear diagnosis of chronic dementia, supported by explicit physician documentation, a documented baseline cognitive impairment, and historical medication allergy, despite the absence of current AD/ADRD specific medications.",0.9,0.3,0.9,,28808.05,4,0.008,0,[],aef0c2ea-447d-4561-93a9-74d628c824cd,2026-05-01T19:24:09Z," 
+Name:  ___                  Unit No:   ___
+ 
+Admission Date:  ___              Discharge Date:   ___
+ 
+Date of Birth:  ___             Sex:   F
+ 
+Service: MEDICINE
+ 
+Allergies: 
+Ultram / Lisinopril "
+18982683-DS-24,18982683,0,na,0,0,0,0,na,high,consensus_negative,[],All specialist agents reached consensus: no AD/ADRD evidence found. LLM arbitration skipped.,,[],"Consensus negative — no medication, symptom, or ICD evidence found.",0.75,0.3,0.85,,14540.37,2,0.004,0,[],aef0c2ea-447d-4561-93a9-74d628c824cd,2026-05-01T19:24:23Z," 
+Name:  ___                    Unit No:   ___
+ 
+Admission Date:  ___              Discharge Date:   ___
+ 
+Date of Birth:  ___             Sex:   F
+ 
+Service: MEDICINE
+ 
+Allergies: 
+Gentamicin / gabap"
+12089245-DS-17,12089245,1,nsd,1,1,1,1,nsd,high,consensus_positive,"[""ClinTextAgent"", ""MedicationAgent"", ""DiagnosisAgent""]","All specialist agents reached consensus: MedicationAgent, ClinTextAgent, and DiagnosisAgent all positive. LLM arbitration skipped.",,[],Consensus positive — medication and clinical evidence both confirmed.,0.9,0.95,0.9,,8746.15,2,0.004,0,[],aef0c2ea-447d-4561-93a9-74d628c824cd,2026-05-01T19:24:32Z," 
+Name:  ___                 Unit No:   ___
+ 
+Admission Date:  ___              Discharge Date:   ___
+ 
+Date of Birth:  ___             Sex:   M
+ 
+Service: MEDICINE
+ 
+Allergies: 
+No Known Allergies / "
+19527667-DS-15,19527667,1,nsd,1,1,1,1,nsd,high,consensus_positive,"[""ClinTextAgent"", ""MedicationAgent"", ""DiagnosisAgent""]","All specialist agents reached consensus: MedicationAgent, ClinTextAgent, and DiagnosisAgent all positive. LLM arbitration skipped.",,[],Consensus positive — medication and clinical evidence both confirmed.,0.9,0.95,0.9,,9476.28,2,0.004,0,[],aef0c2ea-447d-4561-93a9-74d628c824cd,2026-05-01T19:24:42Z," 
+Name:  ___             Unit No:   ___
+ 
+Admission Date:  ___              Discharge Date:   ___
+ 
+Date of Birth:  ___             Sex:   F
+ 
+Service: ___
+ 
+Allergies: 
+No Known Allergies / Adverse D"
+12277320-DS-2,12277320,1,nsd,1,1,1,1,nsd,high,consensus_positive,"[""ClinTextAgent"", ""MedicationAgent"", ""DiagnosisAgent""]","All specialist agents reached consensus: MedicationAgent, ClinTextAgent, and DiagnosisAgent all positive. LLM arbitration skipped.",,[],Consensus positive — medication and clinical evidence both confirmed.,0.9,0.75,0.9,,7583.25,3,0.006,0,[],aef0c2ea-447d-4561-93a9-74d628c824cd,2026-05-01T19:24:49Z," 
+Name:  ___                 Unit No:   ___
+ 
+Admission Date:  ___              Discharge Date:   ___
+ 
+Date of Birth:  ___             Sex:   M
+ 
+Service: MEDICINE
+ 
+Allergies: 
+diltiazem / oxybutyni"
+11364274-DS-12,11364274,1,nsd,1,0,1,1,nsd,high,llm_arbitration,"[""ClinTextAgent"", ""MedicationAgent"", ""DiagnosisAgent""]","ClinTextAgent identified clear documentation of chronic dementia with gradual cognitive decline, explicitly differentiating it from an acute, resolved multifactorial encephalopathy/delirium. DiagnosisAgent corroborated this with explicit text mentions of 'dementia' and 'gradual cognitive decline over years consistent with a senile dementia (AD vs Vascular vs mixed)', further supported by ICD code 29020 (Presenile dementia). MedicationAgent found no AD/ADRD specific medications (cholinesterase inhibitors or memantine), which is a factual finding that does not negate the dementia diagnosis, as not all patients with dementia are on these medications. The complete clinical note explicitly lists 'Dementia' as a discharge diagnosis and states that while the superimposed encephalopathy/delirium resolved, the patient 'continued to have periods of paranoia' and the underlying dementia persists. The note's description of 'gradual cognitive decline over years consistent with a senile dementia (AD vs Vascular vs mixed)' confirms the presence of chronic dementia but indicates clinical uncertainty regarding the specific subtype.",,[],"The patient has clear, documented chronic dementia with gradual cognitive decline, but the specific subtype was not definitively determined by the clinicians, leading to a non-specific dementia classification.",0.9,0.3,0.9,,28569.16,4,0.008,0,[],aef0c2ea-447d-4561-93a9-74d628c824cd,2026-05-01T19:25:18Z," 
+Name:  ___              Unit No:   ___
+ 
+Admission Date:  ___              Discharge Date:   ___
+ 
+Date of Birth:  ___             Sex:   F
+ 
+Service: MEDICINE
+ 
+Allergies: 
+Lipitor / Aspirin
+ 
+Atte"
+14344003-DS-12,14344003,1,vd,1,1,1,1,nsd,high,consensus_positive,"[""ClinTextAgent"", ""MedicationAgent"", ""DiagnosisAgent""]","All specialist agents reached consensus: MedicationAgent, ClinTextAgent, and DiagnosisAgent all positive. LLM arbitration skipped.",,[],Consensus positive — medication and clinical evidence both confirmed.,0.9,0.75,0.9,,11172.6,3,0.006,0,[],aef0c2ea-447d-4561-93a9-74d628c824cd,2026-05-01T19:25:29Z," 
+Name:  ___               Unit No:   ___
+ 
+Admission Date:  ___              Discharge Date:   ___
+ 
+Date of Birth:  ___             Sex:   F
+ 
+Service: MEDICINE
+ 
+Allergies: 
+Atorvastatin
+ 
+Attendin"
+14821269-DS-15,14821269,1,nsd,1,1,1,1,nsd,high,consensus_positive,"[""ClinTextAgent"", ""MedicationAgent"", ""DiagnosisAgent""]","All specialist agents reached consensus: MedicationAgent, ClinTextAgent, and DiagnosisAgent all positive. LLM arbitration skipped.",,[],Consensus positive — medication and clinical evidence both confirmed.,0.9,0.95,0.9,,12319.24,2,0.004,0,[],aef0c2ea-447d-4561-93a9-74d628c824cd,2026-05-01T19:25:41Z," 
+Name:  ___             Unit No:   ___
+ 
+Admission Date:  ___              Discharge Date:   ___
+ 
+Date of Birth:  ___             Sex:   F
+ 
+Service: MEDICINE
+ 
+Allergies: 
+Amoxicillin / Fentanyl / "
+19408546-DS-5,19408546,0,na,0,0,0,0,na,high,consensus_negative,[],All specialist agents reached consensus: no AD/ADRD evidence found. LLM arbitration skipped.,,[],"Consensus negative — no medication, symptom, or ICD evidence found.",0.75,0.3,0.85,,10288.76,2,0.004,0,[],aef0c2ea-447d-4561-93a9-74d628c824cd,2026-05-01T19:25:52Z," 
+Name:  ___                Unit No:   ___
+ 
+Admission Date:  ___              Discharge Date:   ___
+ 
+Date of Birth:  ___             Sex:   M
+ 
+Service: MEDICINE
+ 
+Allergies: 
+No Known Allergies / A"
+16201781-DS-21,16201781,1,nsd,1,0,1,1,nsd,high,llm_arbitration,"[""ClinTextAgent"", ""MedicationAgent"", ""DiagnosisAgent""]","ClinTextAgent identified explicit documentation of 'dementia' in the History of Present Illness and under 'chronic issues', along with persistent severe memory deficits, paranoid thinking, and the use of Quetiapine for behavioral symptoms. DiagnosisAgent identified ICD code 29420 (Dementia in other diseases classified elsewhere with behavioral disturbance), which is strongly supported by the clinical note's description of chronic memory deficits, paranoid thinking, and the need for increased care. MedicationAgent accurately reported the absence of specific AD/ADRD cognitive-enhancing medications, noting that Quetiapine is for behavioral symptoms. Synthesizing this, the explicit physician diagnoses, consistent clinical symptoms (severe short-term memory deficits, paranoid thinking, hallucinations), the need for increased care and impaired decision-making capacity, and the supporting ICD code provide strong, convergent evidence for a current diagnosis of chronic AD/ADRD. The specific subtype cannot be determined from the available clinical details, leading to a non-specific classification.",,[],"The patient has a well-documented history of dementia with persistent severe memory deficits, paranoid thinking, and hallucinations, supported by an ICD code for dementia with behavioral disturbance, despite the absence of specific AD/ADRD cognitive-enhancing medications.",0.9,0.3,0.9,,21715.64,4,0.008,0,[],aef0c2ea-447d-4561-93a9-74d628c824cd,2026-05-01T19:26:13Z," 
+Name:  ___                Unit No:   ___
+ 
+Admission Date:  ___              Discharge Date:   ___
+ 
+Date of Birth:  ___             Sex:   F
+ 
+Service: MEDICINE
+ 
+Allergies: 
+Sulfa (Sulfonamide Ant"
+18985506-DS-20,18985506,1,nsd,1,0,1,1,nsd,high,llm_arbitration,"[""ClinTextAgent"", ""DiagnosisAgent""]","ClinTextAgent identified explicit mentions of 'dementia' in the patient's history and brief hospital course, along with current, persistent cognitive impairment ('Confused - always', 'AAOx1') on discharge, clearly distinguishing it from acute delirium. DiagnosisAgent corroborated this by finding the ICD code F0390 and explicit mentions of 'dementia' in the history and brief hospital course, also noting the 'Mental Status: Confused - always' discharge condition. MedicationAgent found no AD/ADRD specific medications, but this finding does not negate the explicit diagnosis of dementia, as the absence of these medications does not rule out the condition when other strong evidence is present. Based on the explicit documentation of 'dementia' in the patient's past medical history and brief hospital course, strongly supported by the persistent cognitive impairment noted on discharge, a diagnosis of chronic dementia is confirmed. While the patient has a significant history of vascular risk factors including CVA, the clinical note does not explicitly classify the dementia as vascular dementia, nor does it provide specific details about the onset or progression of cognitive decline that would definitively point to a vascular subtype over other possibilities. The ICD code F0390 also indicates 'Unspecified dementia'. Therefore, the subtype is classified as non-specific dementia.","MedicationAgent's finding of no AD/ADRD medications does not contradict the diagnosis of dementia, as the absence of these medications does not rule out the condition, especially when explicit physician documentation, ICD codes, and persistent symptoms are present.",[],"The patient has a documented history of dementia, confirmed by persistent confusion on discharge and an associated ICD code, but the specific subtype is not clearly delineated in the clinical note.",0.9,0.3,0.9,,27108.76,4,0.008,0,[],aef0c2ea-447d-4561-93a9-74d628c824cd,2026-05-01T19:26:40Z," 
+Name:  ___                    Unit No:   ___
+ 
+Admission Date:  ___              Discharge Date:   ___
+ 
+Date of Birth:  ___             Sex:   M
+ 
+Service: MEDICINE
+ 
+Allergies: 
+trazodone
+ 
+Attend"
+11837605-DS-24,11837605,1,nsd,1,1,0,1,nsd,medium,llm_arbitration,"[""MedicationAgent"", ""DiagnosisAgent""]","MedicationAgent identified current AD medication (Aricept/donepezil) with high confidence, confirmed by human annotation and explicit mention in the clinical note's admission, discharge, and hospital course sections. DiagnosisAgent also identified a current AD/ADRD diagnosis with high confidence, based on the patient continuing Aricept as documented in the 'Neuro' section of the Brief Hospital Course, and matched relevant ICD codes (331.82, 294.10). The ClinTextAgent failed to provide a valid response and was disregarded. Based on the strong, consistent evidence from medication and coding, directly supported by the clinical note, a diagnosis of AD/ADRD is confirmed. For subtyping, while the patient has a history of stroke and vascular risk factors, and ICD codes for Dementia with Lewy bodies and unspecified dementia were found, the clinical note lacks detailed descriptions of cognitive symptoms, progression patterns, or specific clinical features that would allow for a definitive classification as Alzheimer's, Vascular, or Frontotemporal dementia. Therefore, 'non-specific dementia' is the most appropriate subtype.","ClinTextAgent failed to provide a valid response and was therefore disregarded. There were no contradictions between the MedicationAgent and DiagnosisAgent, as both strongly supported an active AD/ADRD diagnosis based on the patient's current Aricept/donepezil medication.","[""ClinTextAgent: Agent error, unparseable response, defaulted negative, therefore unreliable and disregarded.""]","The patient has an active AD/ADRD diagnosis confirmed by current Aricept/donepezil medication and supporting diagnostic codes, but the clinical note lacks sufficient detail to classify a specific dementia subtype.",0.0,0.95,0.9,Downgraded: overruled agents present,18986.99,3,0.006,1,"[""ClinTextAgent""]",aef0c2ea-447d-4561-93a9-74d628c824cd,2026-05-01T19:26:59Z," 
+Name:  ___                   Unit No:   ___
+ 
+Admission Date:  ___              Discharge Date:   ___
+ 
+Date of Birth:  ___             Sex:   M
+ 
+Service: CARDIOTHORACIC
+ 
+Allergies: 
+Patient recor"
+13545585-DS-16,13545585,1,vd,1,0,1,1,vd,medium,llm_arbitration,"[""ClinTextAgent""]","ClinTextAgent identified a documented 'suspicion for patient to exhibit vascular dementia' in the 'Goals of Care' section, along with significant chronic functional deficits (inability to administer daytime or mealtime medication/insulin, dietary indiscretion leading to repeated hospitalizations) and reported cognitive issues ('Mental Status: Confused - sometimes'). MedicationAgent confirmed the absence of AD/ADRD specific medications, indicating the condition is not currently being treated with these agents. DiagnosisAgent found an ICD code F0150 (Vascular dementia) but explicitly stated it was not supported by clinical text as a *current* diagnosis. I weighed the explicit physician's 'suspicion' for vascular dementia, coupled with clear and chronic functional impairments and reported confusion, as strong evidence for the *presence* of AD/ADRD, even if not yet formally diagnosed and treated. The patient's history of CVA and multiple vascular risk factors further supports the subtype of vascular dementia.","DiagnosisAgent identified an ICD code for vascular dementia (F0150) but stated it was not supported by clinical text as a current diagnosis, while ClinTextAgent identified a physician's explicit 'suspicion for patient to exhibit vascular dementia' and supporting cognitive/functional deficits. This was resolved by interpreting the 'suspicion' and documented deficits as evidence of the *presence* of AD/ADRD, even if not yet formally diagnosed and coded as a current, active problem in the discharge summary.","[""DiagnosisAgent: The agent's assessment that 'The clinical documentation does not provide evidence for chronic AD/ADRD' was overruled. While the note does not contain a definitive *diagnosis* in the discharge summary, the explicit physician's 'suspicion for patient to exhibit vascular dementia' and the detailed documentation of chronic functional and cognitive deficits (inability to manage medications/diet, 'confused - sometimes') constitute strong clinical evidence for the *presence* of AD/ADRD, even if not yet formally coded as a current diagnosis.""]","Despite the absence of a formal diagnosis or AD/ADRD specific medications, the clinical note contains explicit physician suspicion for vascular dementia and clear documentation of chronic functional and cognitive deficits consistent with AD/ADRD.",0.35,0.3,0.3,,33573.11,4,0.008,0,[],aef0c2ea-447d-4561-93a9-74d628c824cd,2026-05-01T19:27:33Z," 
+Name:  ___                     Unit No:   ___
+ 
+Admission Date:  ___              Discharge Date:   ___
+ 
+Date of Birth:  ___             Sex:   M
+ 
+Service: MEDICINE
+ 
+Allergies: 
+No Known Allergie"
+14583397-DS-21,14583397,1,nsd,1,0,1,1,nsd,high,llm_arbitration,"[""ClinTextAgent"", ""DiagnosisAgent""]","1. ClinTextAgent identified explicit documentation of 'dementia' in the History of Present Illness and as a secondary discharge diagnosis, indicating a chronic condition. 2. DiagnosisAgent identified ICD code 29420 ('Dementia in other diseases classified elsewhere with behavioral disturbance'), which directly codes for dementia. 3. DiagnosisAgent further linked this code to the patient's documented 'Parkinsonisms' in the Past Medical History and Brief Hospital Course, which is supported by physical exam findings (cogwheeling, mouth tremor) and is a known cause of secondary dementia, consistent with the 'in other diseases classified elsewhere' aspect of the code. 4. The clinical note also mentions 'Confused - sometimes' and 'poor functional status (she is bed-bound) at baseline,' which are consistent with chronic cognitive and functional decline. 5. MedicationAgent found no specific AD/ADRD medications, which does not negate the strong positive evidence from the other agents and the clinical note. 6. Based on the concordant and strong evidence from ClinTextAgent and DiagnosisAgent, the patient has a current diagnosis of AD/ADRD. 7. The subtype is classified as 'non-specific dementia' (nsd) because while the dementia is clearly linked to Parkinsonisms (a secondary dementia), the clinical note does not provide sufficient detail to specify a more precise subtype such as Parkinson's Disease Dementia or Dementia with Lewy Bodies.",,[],"The patient has a chronic diagnosis of dementia explicitly documented in the clinical note and supported by a specific ICD code linked to her Parkinsonisms, indicating a secondary dementia.",0.9,0.3,0.9,,25375.88,4,0.008,0,[],aef0c2ea-447d-4561-93a9-74d628c824cd,2026-05-01T19:27:58Z," 
+Name:  ___                       Unit No:   ___
+ 
+Admission Date:  ___              Discharge Date:   ___
+ 
+Date of Birth:  ___             Sex:   F
+ 
+Service: MEDICINE
+ 
+Allergies: 
+Penicillins / a"
+12390114-DS-18,12390114,1,nsd,1,0,1,1,nsd,medium,llm_arbitration,"[""ClinTextAgent""]","ClinTextAgent identified a direct statement in the History of Present Illness: 'h/o mild dementia', indicating a chronic neurodegenerative condition. MedicationAgent found no evidence of AD/ADRD specific medications, which is a strong piece of counter-evidence regarding active pharmacological management. DiagnosisAgent identified an F0390 ICD code but assessed that the clinical note lacked documentation in the formal Past Medical History or Discharge Diagnosis sections to support a chronic AD/ADRD diagnosis. However, the explicit mention of 'mild dementia' in the HPI, which describes the patient's baseline chronic conditions, serves as physician documentation. The patient's presentation with 'failure to thrive' and medication non-compliance, along with 'Speech/thought tangential' on discharge, are consistent with underlying cognitive impairment, even if mild. While the formal diagnosis lists and medication regimen do not explicitly support active management of dementia during this admission, the HPI statement, considered the strongest form of evidence, confirms the patient's history of mild dementia. The 'A&Ox3' and 'Clear and coherent' findings are compatible with mild dementia, especially after resolution of acute delirium (e.g., from UTI). Given the conflicting evidence regarding active management but clear documentation of the condition's history, a diagnosis of AD/ADRD is made with medium confidence. The subtype is non-specific as there is insufficient detail to classify it further.",ClinTextAgent's finding of 'mild dementia' in the HPI contradicts the absence of dementia in the formal Past Medical History and Discharge Diagnosis sections (as noted by DiagnosisAgent) and the absence of AD/ADRD medications (as noted by MedicationAgent).,"[""DiagnosisAgent: The agent's assessment that the clinical note lacks any documentation to support a chronic AD/ADRD diagnosis is overruled, as the History of Present Illness explicitly states 'h/o mild dementia', which constitutes physician documentation within the note.""]","The patient has a documented history of mild dementia in the History of Present Illness, supported by clinical context, despite the absence of specific AD/ADRD medications and formal listing in all diagnosis sections.",0.75,0.3,0.3,,31967.01,4,0.008,0,[],aef0c2ea-447d-4561-93a9-74d628c824cd,2026-05-01T19:28:30Z," 
+Name:  ___             Unit No:   ___
+ 
+Admission Date:  ___              Discharge Date:   ___
+ 
+Date of Birth:  ___             Sex:   F
+ 
+Service: MEDICINE
+ 
+Allergies: 
+ibuprofen / Benadryl
+ 
+At"
+18778050-DS-5,18778050,0,na,1,0,1,1,nsd,high,llm_arbitration,"[""ClinTextAgent"", ""MedicationAgent"", ""DiagnosisAgent""]","ClinTextAgent identified chronic cognitive impairment, citing '?Dementia' in PMH and '#Dementia' in chronic issues, supported by PCP reports of baseline confusion, poor history, and functional deficits impacting daily function. DiagnosisAgent found an ICD code F0390 (unspecified dementia) and noted strong contextual evidence of chronic cognitive impairment, including prior admissions for similar presentations and home safety concerns. MedicationAgent found no AD/ADRD specific medications. I accepted the strong clinical documentation from the note (PCP reports, chronic issues list, discharge diagnosis of 'Possible dementia / cognitive impairment') and the supporting ICD code as definitive for the presence of chronic cognitive impairment consistent with dementia. The absence of specific medications does not negate this strong clinical and coding evidence, as many patients with dementia are not on these medications, or a formal diagnosis leading to treatment may be pending. For subtype, the note provides general cognitive symptoms (memory, executive function) and risk factors (HTN, HLD) but lacks specific details (e.g., clear history of stroke for VD, specific behavioral changes for FTD, or definitive AD features) to classify a specific subtype. The diagnosis itself is queried ('?Dementia', 'Possible dementia') and a formal neurocognitive evaluation is recommended, further supporting a non-specific classification.","MedicationAgent reported no AD/ADRD medications, which was considered. However, this finding does not contradict the presence of dementia, as not all patients with dementia are on these medications, especially if a formal diagnosis is pending or the condition is not yet severe enough to warrant pharmacotherapy. The strong clinical and coding evidence for dementia outweighs the absence of specific treatment.",[],"The patient has documented chronic cognitive impairment with functional deficits, explicitly noted as '#Dementia' in chronic issues and 'Possible dementia / cognitive impairment' in discharge diagnoses, supported by PCP reports and an ICD code for unspecified dementia, despite the absence of specific AD/ADRD medications.",0.35,0.3,0.9,,36501.71,4,0.008,0,[],aef0c2ea-447d-4561-93a9-74d628c824cd,2026-05-01T19:29:07Z," 
+Name:  ___               Unit No:   ___
+ 
+Admission Date:  ___              Discharge Date:   ___
+ 
+Date of Birth:  ___             Sex:   F
+ 
+Service: MEDICINE
+ 
+Allergies: 
+No Known Allergies / Ad"
+11762722-DS-22,11762722,1,nsd,1,1,1,1,nsd,high,consensus_positive,"[""ClinTextAgent"", ""MedicationAgent"", ""DiagnosisAgent""]","All specialist agents reached consensus: MedicationAgent, ClinTextAgent, and DiagnosisAgent all positive. LLM arbitration skipped.",,[],Consensus positive — medication and clinical evidence both confirmed.,0.9,0.95,0.9,,10616.81,2,0.004,0,[],aef0c2ea-447d-4561-93a9-74d628c824cd,2026-05-01T19:29:18Z," 
+Name:  ___                  Unit No:   ___
+ 
+Admission Date:  ___              Discharge Date:   ___
+ 
+Date of Birth:  ___             Sex:   M
+ 
+Service: ORTHOPAEDICS
+ 
+Allergies: 
+Aspirin
+ 
+Attend"
+10716890-DS-10,10716890,1,nsd,1,0,1,1,nsd,high,llm_arbitration,"[""ClinTextAgent"", ""DiagnosisAgent"", ""MedicationAgent""]","ClinTextAgent identified explicit documentation of 'dementia' in the patient's history (History of Present Illness and Brief Hospital Course) and noted ongoing cognitive impairment ('Confused - sometimes') at discharge, with high confidence. DiagnosisAgent corroborated this with high confidence, identifying 'hx of dementia' in the Brief Hospital Course as clear documentation of a chronic AD/ADRD diagnosis. MedicationAgent found no AD/ADRD specific medications in the discharge list. While this is a factual finding, the absence of specific medications does not overrule the explicit physician documentation of dementia, as many patients with dementia may not be on these medications. Based on the strong and consistent physician documentation of 'dementia' as a chronic condition, the diagnosis of AD/ADRD is confirmed. However, the clinical note lacks specific details regarding the onset, progression, or specific cognitive deficits (e.g., memory, language, executive function) that would allow for differentiation between Alzheimer's, Vascular, or Frontotemporal dementia. While vascular risk factors (CAD, HTN, CHF) are present, there is no direct evidence of a stepwise decline or specific vascular events causing the dementia. Therefore, the subtype is classified as non-specific dementia (nsd).","MedicationAgent reported no AD/ADRD specific medications were found. This is not a contradiction to the diagnosis of dementia, but rather an absence of supporting evidence from the medication domain. The explicit physician documentation of dementia in the clinical note, supported by ClinTextAgent and DiagnosisAgent, outweighs the absence of specific medications, as many patients with dementia may not be on these medications for various reasons (e.g., stage of disease, side effects, patient preference).",[],"The patient has a documented history of chronic dementia, explicitly stated in the clinical note, and ongoing cognitive impairment at discharge, but there is insufficient clinical detail to classify a specific subtype.",0.9,0.3,0.9,,24452.34,4,0.008,0,[],aef0c2ea-447d-4561-93a9-74d628c824cd,2026-05-01T19:29:42Z," 
+Name:  ___                  Unit No:   ___
+ 
+Admission Date:  ___              Discharge Date:   ___
+ 
+Date of Birth:  ___             Sex:   F
+ 
+Service: MEDICINE
+ 
+Allergies: 
+E-Mycin
+ 
+Attending:"
+19040142-DS-12,19040142,0,na,0,0,0,0,na,high,consensus_negative,[],All specialist agents reached consensus: no AD/ADRD evidence found. LLM arbitration skipped.,,[],"Consensus negative — no medication, symptom, or ICD evidence found.",0.75,0.3,0.85,,10204.93,2,0.004,0,[],aef0c2ea-447d-4561-93a9-74d628c824cd,2026-05-01T19:29:52Z," 
+Name:  ___                    Unit No:   ___
+ 
+Admission Date:  ___              Discharge Date:   ___
+ 
+Date of Birth:  ___             Sex:   F
+ 
+Service: NEUROSURGERY
+ 
+Allergies: 
+Penicillins
+ 
+"
+13640406-DS-9,13640406,1,nsd,1,0,1,0,na,high,llm_arbitration,"[""ClinTextAgent"", ""MedicationAgent"", ""DiagnosisAgent""]","ClinTextAgent identified a 'PMHx of ... dementia' in the History of Present Illness and noted acute cognitive impairment on admission ('poor historian', 'A and O x1'). However, ClinTextAgent also highlighted the discharge mental status as 'Clear and coherent (baseline mental status),' suggesting resolution of acute confusion. MedicationAgent found no evidence of AD/ADRD specific medications, indicating a lack of pharmacological management for dementia. DiagnosisAgent, while identifying an ICD code (29420) that implies dementia, explicitly stated that it was `is_current_diagnosis: False` and found no clinical documentation to support a *chronic* AD/ADRD diagnosis, further emphasizing the 'Clear and coherent (baseline mental status)' at discharge. Upon comprehensive review of the clinical note, the explicit mention of 'PMHx of dementia' in the HPI is noted. However, this is contradicted by its absence in the formal Past Medical History list, the 'Chronic conditions' section of the Brief Hospital Course, and the Discharge Diagnosis. The most compelling evidence is the 'Discharge Condition' which explicitly states 'Mental Status: Clear and coherent (baseline mental status)'. This directly indicates that the patient's *baseline* cognitive function is intact, ruling out a current, active dementia diagnosis. The acute cognitive changes observed on admission ('poor historian', 'A and O x1') are consistent with acute delirium, likely precipitated by the UTI and major surgery, which subsequently resolved by discharge.","ClinTextAgent correctly identified a 'PMHx of dementia' in the History of Present Illness, which initially appears to contradict DiagnosisAgent's claim of 'no documentation of chronic AD/ADRD, dementia, or any related cognitive impairment' in the PMHx. This discrepancy is resolved by noting that while mentioned in the HPI, dementia is *not* listed in the formal Past Medical History section, the 'Chronic conditions' list in the Brief Hospital Course, or the Discharge Diagnosis. The most significant resolution comes from the 'Discharge Condition' explicitly stating 'Mental Status: Clear and coherent (baseline mental status)', which strongly indicates that any acute cognitive impairment resolved and the patient's baseline cognition is not consistent with a chronic dementia diagnosis. This supports DiagnosisAgent's overall conclusion that there is no evidence for a *current chronic* AD/ADRD diagnosis.",[],"The patient's discharge mental status is explicitly documented as 'Clear and coherent (baseline mental status),' which directly contradicts a current diagnosis of dementia, despite a historical mention in the HPI and acute confusion likely due to delirium.",0.9,0.3,0.85,,34653.3,4,0.008,0,[],aef0c2ea-447d-4561-93a9-74d628c824cd,2026-05-01T19:30:27Z," 
+Name:  ___                   Unit No:   ___
+ 
+Admission Date:  ___              Discharge Date:   ___
+ 
+Date of Birth:  ___             Sex:   F
+ 
+Service: MEDICINE
+ 
+Allergies: 
+Augmentin / Keflex "
+18653563-DS-53,18653563,1,nsd,1,0,1,1,vd,high,llm_arbitration,"[""ClinTextAgent"", ""DiagnosisAgent""]","ClinTextAgent identified explicit physician documentation of ""underlying dementia at baseline"" in the Brief Hospital Course and ""Attention and executive function difficulties"" in the Past Medical History, strongly supporting chronic dementia. DiagnosisAgent corroborated the presence of underlying chronic dementia based on the same explicit statement in the Brief Hospital Course, validating the diagnosis. MedicationAgent found no AD/ADRD specific medications, but this negative finding does not negate the explicit physician documentation of chronic dementia, as the absence of these medications does not rule out dementia, especially given the patient's complex medical history and the acute presentation of toxic encephalopathy. The clinical note provides strong evidence for the presence of chronic dementia. For subtype classification, the Past Medical History details ""hypertensive encephalopathy with brief episodes of confusion"" and MRI findings ""consistent with vasculopathy associated with cardiovascular pathology, hypertension, and additional associated comorbidities,"" along with extensive vascular risk factors (Type 1 diabetes, CAD, PVD, HTN, ESRD). This constellation of evidence strongly supports a diagnosis of Vascular Dementia.","MedicationAgent reported no AD/ADRD specific medications, but this finding does not contradict the explicit physician documentation of underlying chronic dementia. The absence of these medications does not rule out dementia, particularly in patients with complex comorbidities or where medication may not be indicated or tolerated, and is outweighed by the direct physician statements.",[],"The patient has underlying chronic dementia explicitly documented by the physician, with strong clinical evidence pointing towards a vascular subtype given extensive vascular risk factors and MRI findings consistent with vasculopathy.",0.9,0.3,0.9,,24624.23,4,0.008,0,[],aef0c2ea-447d-4561-93a9-74d628c824cd,2026-05-01T19:30:51Z," 
+Name:  ___.              Unit No:   ___
+ 
+Admission Date:  ___              Discharge Date:   ___
+ 
+Date of Birth:  ___             Sex:   F
+ 
+Service: MEDICINE
+ 
+Allergies: 
+Betadine Spray / Nitrog"
+16911004-DS-12,16911004,0,na,0,0,0,0,na,high,consensus_negative,[],All specialist agents reached consensus: no AD/ADRD evidence found. LLM arbitration skipped.,,[],"Consensus negative — no medication, symptom, or ICD evidence found.",0.75,0.3,0.85,,7848.22,2,0.004,0,[],aef0c2ea-447d-4561-93a9-74d628c824cd,2026-05-01T19:30:59Z," 
+Name:  ___                  Unit No:   ___
+ 
+Admission Date:  ___              Discharge Date:   ___
+ 
+Date of Birth:  ___             Sex:   M
+ 
+Service: MEDICINE
+ 
+Allergies: 
+heparin
+ 
+Attending:"
+18579789-DS-11,18579789,1,ad,1,1,1,1,nsd,high,consensus_positive,"[""ClinTextAgent"", ""MedicationAgent"", ""DiagnosisAgent""]","All specialist agents reached consensus: MedicationAgent, ClinTextAgent, and DiagnosisAgent all positive. LLM arbitration skipped.",,[],Consensus positive — medication and clinical evidence both confirmed.,0.9,0.95,0.9,,12319.54,2,0.004,0,[],aef0c2ea-447d-4561-93a9-74d628c824cd,2026-05-01T19:31:12Z," 
+Name:  ___.            Unit No:   ___
+ 
+Admission Date:  ___              Discharge Date:   ___
+ 
+Date of Birth:  ___             Sex:   F
+ 
+Service: MEDICINE
+ 
+Allergies: 
+No Known Allergies / Adve"
+15763754-DS-13,15763754,1,ad,1,1,1,1,nsd,high,consensus_positive,"[""ClinTextAgent"", ""MedicationAgent"", ""DiagnosisAgent""]","All specialist agents reached consensus: MedicationAgent, ClinTextAgent, and DiagnosisAgent all positive. LLM arbitration skipped.",,[],Consensus positive — medication and clinical evidence both confirmed.,0.9,0.75,0.9,,6999.86,3,0.006,0,[],aef0c2ea-447d-4561-93a9-74d628c824cd,2026-05-01T19:31:19Z," 
+Name:  ___                     Unit No:   ___
+ 
+Admission Date:  ___              Discharge Date:   ___
+ 
+Date of Birth:  ___             Sex:   F
+ 
+Service: ORTHOPAEDICS
+ 
+Allergies: 
+No Known Alle"
+11906279-DS-7,11906279,1,nsd,1,1,1,1,nsd,high,consensus_positive,"[""ClinTextAgent"", ""MedicationAgent"", ""DiagnosisAgent""]","All specialist agents reached consensus: MedicationAgent, ClinTextAgent, and DiagnosisAgent all positive. LLM arbitration skipped.",,[],Consensus positive — medication and clinical evidence both confirmed.,0.9,0.95,0.9,,14009.79,2,0.004,0,[],aef0c2ea-447d-4561-93a9-74d628c824cd,2026-05-01T19:31:33Z," 
+Name:  ___                 Unit No:   ___
+ 
+Admission Date:  ___              Discharge Date:   ___
+ 
+Date of Birth:  ___             Sex:   F
+ 
+Service: MEDICINE
+ 
+Allergies: 
+Bactrim / Fosamax / p"
+16218902-DS-32,16218902,0,na,0,0,0,0,na,high,consensus_negative,[],All specialist agents reached consensus: no AD/ADRD evidence found. LLM arbitration skipped.,,[],"Consensus negative — no medication, symptom, or ICD evidence found.",0.75,0.3,0.85,,9227.66,2,0.004,0,[],aef0c2ea-447d-4561-93a9-74d628c824cd,2026-05-01T19:31:42Z," 
+Name:  ___                 Unit No:   ___
+ 
+Admission Date:  ___              Discharge Date:   ___
+ 
+Date of Birth:  ___             Sex:   M
+ 
+Service: MEDICINE
+ 
+Allergies: 
+ciprofloxacin / oxali"
+10165673-DS-4,10165673,0,na,0,0,0,0,na,high,consensus_negative,[],All specialist agents reached consensus: no AD/ADRD evidence found. LLM arbitration skipped.,,[],"Consensus negative — no medication, symptom, or ICD evidence found.",0.75,0.3,0.85,,6863.16,2,0.004,0,[],aef0c2ea-447d-4561-93a9-74d628c824cd,2026-05-01T19:31:49Z," 
+Name:  ___                      Unit No:   ___
+ 
+Admission Date:  ___              Discharge Date:   ___
+ 
+Date of Birth:  ___             Sex:   F
+ 
+Service: MEDICINE
+ 
+Allergies: 
+No Known Allergi"
+18856567-DS-14,18856567,1,nsd,1,0,1,1,nsd,high,llm_arbitration,"[""ClinTextAgent"", ""DiagnosisAgent""]","ClinTextAgent identified multiple explicit mentions of 'dementia' in the clinical note (PMH, HPI, Brief Hospital Course, Discharge Diagnosis) and described baseline cognitive and functional impairments, assessing chronic dementia with high confidence. DiagnosisAgent corroborated this with explicit documentation of 'dementia' in PMH and Brief Hospital Course, supported by a diagnostic code (29420) and the discharge condition 'Confused - always', also with high confidence. MedicationAgent reported no AD/ADRD specific medications. I weighed the explicit and consistent physician documentation of dementia and the detailed description of chronic cognitive and functional impairment from ClinTextAgent and DiagnosisAgent as strong evidence for the presence of dementia. The absence of AD/ADRD specific medications, as noted by MedicationAgent, does not negate the overwhelming positive evidence for dementia, as patients may not be on these medications for various clinical reasons. Therefore, I conclude that the patient has chronic dementia. Regarding subtype, while the patient has risk factors like HTN and HLD, the clinical note does not provide sufficient detail (e.g., specific pattern of cognitive decline, history of strokes, specific neurological deficits, or prominent behavioral/language changes) to classify the dementia as Alzheimer's, Vascular, or Frontotemporal dementia. Thus, it is classified as non-specific dementia.","MedicationAgent reported no AD/ADRD specific medications, which could be perceived as a discrepancy with a positive dementia diagnosis. However, this is not a true contradiction as the absence of these medications does not rule out dementia, given the strong positive evidence from explicit physician documentation and symptom description.",[],"The patient has clear and consistent physician documentation of chronic dementia with described cognitive and functional impairments, but insufficient clinical detail to classify a specific subtype.",0.9,0.3,0.9,,23988.11,4,0.008,0,[],aef0c2ea-447d-4561-93a9-74d628c824cd,2026-05-01T19:32:13Z," 
+Name:  ___                     Unit No:   ___
+ 
+Admission Date:  ___              Discharge Date:   ___
+ 
+Date of Birth:  ___             Sex:   F
+ 
+Service: MEDICINE
+ 
+Allergies: 
+___
+ 
+Attending: "
+13877014-DS-17,13877014,1,nsd,1,0,1,1,nsd,high,llm_arbitration,"[""ClinTextAgent"", ""DiagnosisAgent""]","ClinTextAgent identified explicit documentation of 'Dementia' and 'Progressive Supranuclear Palsy' in the patient's past medical history, history of present illness, and discharge diagnoses, noting that PSP commonly includes a dementia component. DiagnosisAgent corroborated the presence of a chronic 'Dementia' diagnosis (F0280) based on the Past Medical History and consistent mental status at discharge. MedicationAgent found no AD/ADRD specific medications (confidence_score: 0.3), but this finding does not negate the explicit diagnoses, especially considering the patient's NPO status and discontinuation of many oral medications during the hospital course. Based on the strong, consistent evidence from ClinTextAgent and DiagnosisAgent, the patient clearly has a chronic neurodegenerative dementia. The specific subtype is repeatedly identified as Progressive Supranuclear Palsy, which is a distinct neurodegenerative cause of dementia. Since PSP is not Alzheimer's, Vascular, or Frontotemporal dementia, it is best classified as 'non-specific dementia' within the provided subtype options.","MedicationAgent found no AD/ADRD specific medications. This is not a true discrepancy with the diagnosis of dementia, as the absence of these medications does not negate the explicit physician diagnoses, particularly given the patient's NPO status, severe dysphagia, and transition to hospice care where many oral medications were discontinued or not initiated.",[],"The patient has chronic neurodegenerative dementia, specifically Progressive Supranuclear Palsy, explicitly documented in multiple sections of the clinical note.",0.9,0.3,0.9,,25861.95,4,0.008,0,[],aef0c2ea-447d-4561-93a9-74d628c824cd,2026-05-01T19:32:39Z," 
+Name:  ___                  Unit No:   ___
+ 
+Admission Date:  ___              Discharge Date:   ___
+ 
+Date of Birth:  ___             Sex:   M
+ 
+Service: MEDICINE
+ 
+Allergies: 
+No Known Allergies /"
+17505260-DS-17,17505260,0,na,1,0,1,1,nsd,medium,llm_arbitration,"[""ClinTextAgent"", ""MedicationAgent"", ""DiagnosisAgent""]","1. ClinTextAgent identified 'AIDS DEMENTIA COMPLEX (ICD-294.10)' explicitly listed in the patient's Past Medical History, indicating a chronic diagnosis of dementia. 2. MedicationAgent confirmed the absence of AD/ADRD-specific medications, which suggests the dementia is not actively managed with these agents during this acute admission. 3. DiagnosisAgent identified the ICD code 29410 but concluded there was no supporting clinical evidence in the *current* note to confirm it as a 'genuine chronic AD/ADRD diagnosis,' citing the patient's 'Clear and coherent' mental status at discharge and lack of mention in active issues. 4. As the senior attending physician, I acknowledge that the explicit mention of 'AIDS DEMENTIA COMPLEX' in the Past Medical History is valid evidence of a chronic AD/ADRD diagnosis, as per the instructions. While the current admission note focuses on acute issues and the patient's mental status is noted as clear and coherent at discharge, this does not negate a pre-existing chronic diagnosis. The lack of current active symptoms or specific AD/ADRD medication management during this acute admission may indicate a stable or well-controlled chronic condition, but the diagnosis itself remains part of the patient's chronic medical history. 5. The subtype 'AIDS Dementia Complex' is classified as 'Non-specific dementia' (nsd) as it is a distinct form of dementia not falling under Alzheimer's, Vascular, or Frontotemporal types.","ClinTextAgent identified a chronic diagnosis of AIDS Dementia Complex from the Past Medical History. DiagnosisAgent identified the corresponding ICD code but argued there was no *current clinical documentation* to support it as a 'genuine chronic AD/ADRD diagnosis' due to lack of elaboration in active issues/discharge diagnosis and the patient's clear mental status. This was resolved by affirming that a diagnosis explicitly listed in the Past Medical History constitutes valid evidence for a chronic condition, even if not actively symptomatic or elaborated upon during an acute admission, as the current admission was for unrelated acute issues.","[""DiagnosisAgent: Its conclusion that there is 'no clinical documentation in the note to support the ICD code 29410 as a genuine chronic AD/ADRD diagnosis for this patient' was overruled. The explicit mention of 'AIDS DEMENTIA COMPLEX (ICD-294.10)' in the Past Medical History *is* clinical documentation of a genuine chronic diagnosis, and its absence from active issues or current symptoms does not negate its chronic status.""]","The patient has a documented chronic diagnosis of AIDS Dementia Complex in their Past Medical History, which constitutes a non-specific form of dementia, despite the absence of active cognitive symptoms or specific AD/ADRD medication management during this acute admission.",0.75,0.3,0.3,,26605.92,4,0.008,0,[],aef0c2ea-447d-4561-93a9-74d628c824cd,2026-05-01T19:33:05Z," 
+Name:  ___                   Unit No:   ___
+ 
+Admission Date:  ___              Discharge Date:   ___
+ 
+Date of Birth:  ___             Sex:   M
+ 
+Service: MEDICINE
+ 
+Allergies: 
+___
+ 
+Attending: __"
+19290730-DS-10,19290730,1,nsd,1,1,1,1,nsd,high,consensus_positive,"[""ClinTextAgent"", ""MedicationAgent"", ""DiagnosisAgent""]","All specialist agents reached consensus: MedicationAgent, ClinTextAgent, and DiagnosisAgent all positive. LLM arbitration skipped.",,[],Consensus positive — medication and clinical evidence both confirmed.,0.9,0.95,0.9,,8223.57,2,0.004,0,[],aef0c2ea-447d-4561-93a9-74d628c824cd,2026-05-01T19:33:13Z," 
+Name:  ___                Unit No:   ___
+ 
+Admission Date:  ___              Discharge Date:   ___
+ 
+Date of Birth:  ___             Sex:   M
+ 
+Service: MEDICINE
+ 
+Allergies: 
+Penicillins / Bactrim
+"
+18540421-DS-10,18540421,1,nsd,1,0,1,1,nsd,high,llm_arbitration,"[""ClinTextAgent"", ""DiagnosisAgent""]","ClinTextAgent identified explicit documentation of 'h/o mild dementia' in the History of Present Illness, 'dementia/delerium -- improved to baseline during her course' in the Brief Hospital Course, and 'dementia' as a discharge condition, all strongly indicating a chronic, ongoing dementia. DiagnosisAgent corroborated these findings, identifying a relevant diagnostic code (2900) and reinforcing the presence of chronic AD/ADRD. MedicationAgent found no AD/ADRD specific medications, but this negative finding does not negate the clear and consistent physician documentation of chronic dementia throughout the clinical note. The patient's history of a 'L frontaltemporal CVA' is noted, which is a risk factor for vascular dementia; however, the clinical note does not provide sufficient detail (e.g., stepwise decline, specific cognitive deficits linked to the stroke) to definitively classify the dementia as vascular, Alzheimer's, or frontotemporal. Therefore, a non-specific dementia subtype is most appropriate.","MedicationAgent reported no AD/ADRD medications. This finding does not contradict the diagnosis of dementia itself, as many patients with mild dementia or specific subtypes may not be on these medications, or they may have been discontinued. The explicit physician documentation of chronic dementia by ClinTextAgent and DiagnosisAgent, and within the clinical note, takes precedence for establishing the presence of the condition.",[],"The patient has a clearly documented chronic history of mild dementia that returned to baseline after an acute delirium episode and is listed as a current discharge condition, confirming an active AD/ADRD diagnosis, but without sufficient clinical detail to classify a specific subtype.",0.9,0.3,0.9,,21115.24,4,0.008,0,[],aef0c2ea-447d-4561-93a9-74d628c824cd,2026-05-01T19:33:35Z," 
+Name:  ___                   Unit No:   ___
+ 
+Admission Date:  ___              Discharge Date:   ___
+ 
+Date of Birth:  ___             Sex:   F
+ 
+Service: MEDICINE
+ 
+Allergies: 
+Patient recorded as"
+19732355-DS-19,19732355,0,na,0,0,0,0,na,high,consensus_negative,[],All specialist agents reached consensus: no AD/ADRD evidence found. LLM arbitration skipped.,,[],"Consensus negative — no medication, symptom, or ICD evidence found.",0.0,0.3,0.85,,11150.51,2,0.004,1,"[""ClinTextAgent""]",aef0c2ea-447d-4561-93a9-74d628c824cd,2026-05-01T19:33:46Z," 
+Name:  ___                Unit No:   ___
+ 
+Admission Date:  ___              Discharge Date:   ___
+ 
+Date of Birth:  ___             Sex:   F
+ 
+Service: SURGERY
+ 
+Allergies: 
+Iodine
+ 
+Attending: ___"
+14437578-DS-14,14437578,0,na,0,0,0,0,na,high,consensus_negative,[],All specialist agents reached consensus: no AD/ADRD evidence found. LLM arbitration skipped.,,[],"Consensus negative — no medication, symptom, or ICD evidence found.",0.75,0.3,0.85,,16877.84,2,0.004,0,[],aef0c2ea-447d-4561-93a9-74d628c824cd,2026-05-01T19:34:03Z," 
+Name:  ___                     Unit No:   ___
+ 
+Admission Date:  ___              Discharge Date:   ___
+ 
+Date of Birth:  ___             Sex:   F
+ 
+Service: MEDICINE
+ 
+Allergies: 
+Patient recorded "
+12827865-DS-4,12827865,0,na,0,0,0,0,na,high,consensus_negative,[],All specialist agents reached consensus: no AD/ADRD evidence found. LLM arbitration skipped.,,[],"Consensus negative — no medication, symptom, or ICD evidence found.",0.75,0.3,0.85,,8265.8,2,0.004,0,[],aef0c2ea-447d-4561-93a9-74d628c824cd,2026-05-01T19:34:11Z," 
+Name:  ___                    Unit No:   ___
+ 
+Admission Date:  ___              Discharge Date:   ___
+ 
+Date of Birth:  ___             Sex:   F
+ 
+Service: MEDICINE
+ 
+Allergies: 
+No Known Allergies"
+11963456-DS-18,11963456,1,nsd,1,0,1,1,nsd,high,llm_arbitration,"[""ClinTextAgent"", ""DiagnosisAgent""]","ClinTextAgent identified explicit documentation of 'Dementia' in the Past Medical History and Brief Hospital Course, along with persistent disorientation and agitation throughout hospitalization, and chronic medication management for behavioral symptoms. DiagnosisAgent further supported this by identifying the discharge condition 'Mental Status: Confused - always,' which indicates a chronic cognitive impairment consistent with dementia. MedicationAgent reported no specific AD/ADRD cognitive-enhancing medications, which is a neutral finding and does not contradict the strong positive evidence. Based on explicit physician documentation and consistent clinical findings of chronic cognitive impairment, a diagnosis of AD/ADRD is confirmed. However, the clinical note lacks sufficient detail regarding the specific pattern of cognitive decline, detailed neurological findings, or clear history of chronic vascular events to classify a specific subtype, leading to a non-specific dementia classification.",,[],"The patient has a documented history of dementia, persistent disorientation and agitation throughout hospitalization, and a discharge mental status of 'Confused - always,' confirming a chronic AD/ADRD diagnosis, but without sufficient detail for subtype classification.",0.9,0.3,0.9,,27248.5,4,0.008,0,[],aef0c2ea-447d-4561-93a9-74d628c824cd,2026-05-01T19:34:38Z," 
+Name:  ___               Unit No:   ___
+ 
+Admission Date:  ___              Discharge Date:   ___
+ 
+Date of Birth:  ___             Sex:   F
+ 
+Service: SURGERY
+ 
+Allergies: 
+Penicillins
+ 
+Attending:"
+10711330-DS-16,10711330,0,na,0,0,0,0,na,high,consensus_negative,[],All specialist agents reached consensus: no AD/ADRD evidence found. LLM arbitration skipped.,,[],"Consensus negative — no medication, symptom, or ICD evidence found.",0.75,0.3,0.85,,7691.58,2,0.004,0,[],aef0c2ea-447d-4561-93a9-74d628c824cd,2026-05-01T19:34:46Z," 
+Name:  ___                    Unit No:   ___
+ 
+Admission Date:  ___              Discharge Date:   ___
+ 
+Date of Birth:  ___             Sex:   M
+ 
+Service: SURGERY
+ 
+Allergies: 
+No Known Allergies "
+17797252-DS-39,17797252,0,na,0,0,0,0,na,high,consensus_negative,[],All specialist agents reached consensus: no AD/ADRD evidence found. LLM arbitration skipped.,,[],"Consensus negative — no medication, symptom, or ICD evidence found.",0.75,0.3,0.85,,7563.63,2,0.004,0,[],aef0c2ea-447d-4561-93a9-74d628c824cd,2026-05-01T19:34:53Z," 
+Name:  ___              Unit No:   ___
+ 
+Admission Date:  ___              Discharge Date:   ___
+ 
+Date of Birth:  ___             Sex:   F
+ 
+Service: MEDICINE
+ 
+Allergies: 
+Sulfa (Sulfonamide Antib"
+10272398-DS-16,10272398,0,na,0,0,0,0,na,high,consensus_negative,[],All specialist agents reached consensus: no AD/ADRD evidence found. LLM arbitration skipped.,,[],"Consensus negative — no medication, symptom, or ICD evidence found.",0.75,0.3,0.85,,9933.32,2,0.004,0,[],aef0c2ea-447d-4561-93a9-74d628c824cd,2026-05-01T19:35:03Z," 
+Name:  ___                 Unit No:   ___
+ 
+Admission Date:  ___              Discharge Date:   ___
+ 
+Date of Birth:  ___             Sex:   M
+ 
+Service: MEDICINE
+ 
+Allergies: 
+No Known Allergies / "
+19041692-DS-5,19041692,1,nsd,1,1,0,1,nsd,medium,llm_arbitration,"[""MedicationAgent"", ""DiagnosisAgent""]","MedicationAgent identified current use of donepezil, an AD/ADRD medication, with high confidence. DiagnosisAgent identified 'Mild dementia' explicitly listed in the Past Medical History, confirming a chronic AD/ADRD condition, also with high confidence. The clinical note corroborates both findings, listing 'Mild dementia' in PMH and 'Donepezil 10 mg PO HS' on current medication lists. Additionally, the neurological exam notes 'occasional word-finding difficulty' and the discharge condition states 'Confused - sometimes', further supporting cognitive impairment. Based on this strong, consistent evidence, an active AD/ADRD diagnosis is confirmed. For subtype classification, while the patient has extensive cardiovascular disease, the clinical note does not provide sufficient specific details regarding the onset, progression, or specific cognitive profile of the dementia (e.g., stepwise decline, specific focal deficits linked to strokes) to definitively classify it as Alzheimer's disease or Vascular dementia. The documented diagnosis is simply 'Mild dementia', leading to a classification of non-specific dementia.","ClinTextAgent reported an agent error and defaulted to a negative finding, which was disregarded due to its unparseable response and lack of valid analysis. The findings of MedicationAgent and DiagnosisAgent were consistent and well-supported by the clinical note.","[""ClinTextAgent: Agent error, unparseable response, defaulted negative without valid analysis.""]","The patient has a documented history of 'Mild dementia' and is currently on donepezil, confirming an active AD/ADRD diagnosis, but the specific subtype is not clearly delineated in the clinical note.",0.0,0.95,0.9,Downgraded: overruled agents present,21307.45,3,0.006,1,"[""ClinTextAgent""]",aef0c2ea-447d-4561-93a9-74d628c824cd,2026-05-01T19:35:25Z," 
+Name:  ___                  ___ No:   ___
+ 
+Admission Date:  ___              Discharge Date:   ___
+ 
+Date of Birth:  ___             Sex:   M
+ 
+Service: MEDICINE
+ 
+Allergies: 
+Ampicillin / pravasta"
+12896334-DS-4,12896334,0,na,0,0,1,1,vd,high,llm_arbitration,"[""ClinTextAgent""]","ClinTextAgent identified strong and consistent evidence of chronic cognitive impairment, including residual aphasia post-CVA and a persistent state of confusion at baseline ('Mental Status: Confused - always'). MedicationAgent and DiagnosisAgent reported no AD/ADRD specific medications or ICD codes, respectively. I weighed the clinical documentation of chronic symptoms, which is explicitly stated as the patient's baseline and directly linked to a cerebrovascular accident, as the strongest evidence. The absence of formal coding or specific treatment does not negate the clear clinical picture of chronic cognitive impairment. Given the history of CVA and the nature of the cognitive deficits (aphasia, right-sided paralysis), the subtype is classified as vascular dementia.","ClinTextAgent identified chronic cognitive impairment consistent with ADRD, while MedicationAgent and DiagnosisAgent found no evidence of AD/ADRD treatment or coding. This discrepancy is resolved by prioritizing the explicit and consistent clinical documentation of chronic cognitive symptoms over the absence of formal coding or specific pharmacological treatment, as patients with established, stable, or non-progressing dementia may not always have active treatment or specific ICD codes in every admission.",[],"The patient has chronic cognitive impairment, specifically residual aphasia and persistent confusion at baseline, directly attributable to a history of cerebrovascular accident, consistent with vascular dementia.",0.75,0.3,0.85,,30604.82,3,0.006,0,[],aef0c2ea-447d-4561-93a9-74d628c824cd,2026-05-01T19:35:55Z," 
+Name:  ___             Unit No:   ___
+ 
+Admission Date:  ___              Discharge Date:   ___
+ 
+Date of Birth:  ___             Sex:   F
+ 
+Service: ___
+ 
+Allergies: 
+No Known Allergies / Adverse D"
+17396168-DS-15,17396168,1,ad,1,1,1,1,nsd,high,consensus_positive,"[""ClinTextAgent"", ""MedicationAgent"", ""DiagnosisAgent""]","All specialist agents reached consensus: MedicationAgent, ClinTextAgent, and DiagnosisAgent all positive. LLM arbitration skipped.",,[],Consensus positive — medication and clinical evidence both confirmed.,0.9,0.95,0.9,,9926.71,2,0.004,0,[],aef0c2ea-447d-4561-93a9-74d628c824cd,2026-05-01T19:36:05Z," 
+Name:  ___                 Unit No:   ___
+ 
+Admission Date:  ___              Discharge Date:   ___
+ 
+Date of Birth:  ___             Sex:   F
+ 
+Service: NEUROLOGY
+ 
+Allergies: 
+Aricept / Bees / cod"
+15328282-DS-16,15328282,0,na,0,0,1,0,na,high,llm_arbitration,"[""ClinTextAgent"", ""MedicationAgent"", ""DiagnosisAgent""]","1. ClinTextAgent identified acute somnolence and encephalopathy but explicitly linked these symptoms to reversible medical conditions (hypercarbic respiratory failure) and noted their resolution to baseline, concluding there was no evidence of chronic AD/ADRD. 2. MedicationAgent found no AD/ADRD specific medications in the patient's admission or discharge medication lists. 3. DiagnosisAgent found no AD/ADRD ICD codes in the patient's record. 4. As the senior attending physician, I reviewed the complete clinical note, which corroborated these findings, explicitly stating that the patient's mental status returned to baseline and was 'not somnolent' at discharge. All documented cognitive symptoms were acute, attributed to reversible causes, and resolved. 5. Based on the consistent findings from all agents and my comprehensive clinical review, there is no evidence to support a diagnosis of AD/ADRD.",,[],"The patient's acute cognitive changes were attributed to reversible medical conditions (hypercarbic respiratory failure) and resolved to baseline, with no other evidence of chronic AD/ADRD from specialist reports or the clinical note.",0.6,0.3,0.85,,21706.32,3,0.006,0,[],aef0c2ea-447d-4561-93a9-74d628c824cd,2026-05-01T19:36:27Z," 
+Name:  ___                Unit No:   ___
+ 
+Admission Date:  ___              Discharge Date:   ___
+ 
+Date of Birth:  ___             Sex:   F
+ 
+Service: MEDICINE
+ 
+Allergies: 
+___
+ 
+Attending: ___.
+"
+14030143-DS-15,14030143,0,na,0,0,0,0,na,high,consensus_negative,[],All specialist agents reached consensus: no AD/ADRD evidence found. LLM arbitration skipped.,,[],"Consensus negative — no medication, symptom, or ICD evidence found.",0.75,0.3,0.85,,10501.19,2,0.004,0,[],aef0c2ea-447d-4561-93a9-74d628c824cd,2026-05-01T19:36:37Z," 
+Name:  ___                Unit No:   ___
+ 
+Admission Date:  ___              Discharge Date:   ___
+ 
+Date of Birth:  ___             Sex:   M
+ 
+Service: MEDICINE
+ 
+Allergies: 
+sulfa / lisinopril / B"
+14746989-DS-22,14746989,1,ad,1,0,1,0,na,high,llm_arbitration,"[""ClinTextAgent"", ""MedicationAgent"", ""DiagnosisAgent""]","1. ClinTextAgent identified acute cognitive and language symptoms (difficulty producing words, word substitutions, anomia, mild dysarthria, difficulty with attentive tasks, confusion with cross-body commands) but explicitly attributed them to a 'New - Stroke (left side)', noting the patient 'had been doing well at home' and 'No similar episodes in the past', and that she 'continued to improve while in the hospital'. This strongly refutes a chronic underlying condition like AD/ADRD. 2. MedicationAgent meticulously reviewed the medication lists and confirmed the complete absence of any AD/ADRD specific medications (e.g., Donepezil, Memantine), indicating no prior diagnosis or ongoing treatment for dementia. 3. DiagnosisAgent identified ICD codes 3310 (Alzheimer's disease) and 29410 (Dementia in other diseases) but critically stated that these were 'is_current_diagnosis: False'. Its reasoning further clarified that the clinical documentation points to acute cognitive changes due to stroke and possible toxic/metabolic encephalopathy (UTI), with no evidence of chronic AD/ADRD. 4. My review of the complete clinical note corroborated these findings, showing an acute onset of symptoms, clear attribution to stroke and possible UTI-related encephalopathy, documented improvement, and no mention of chronic dementia in the patient's past medical history or discharge diagnoses. The 'Confused - sometimes' mental status at discharge is consistent with residual effects of the acute stroke and/or resolving encephalopathy. 5. Based on the consistent evidence from all agents and the clinical note, the patient's cognitive symptoms are acute and fully explained by other conditions, not AD/ADRD.","DiagnosisAgent identified ICD codes 3310 and 29410, which could initially suggest AD/ADRD. However, the agent explicitly stated 'is_current_diagnosis: False' for these codes and its reasoning clarified that the clinical documentation points to acute cognitive changes from stroke and toxic/metabolic encephalopathy, with no evidence of chronic AD/ADRD. This clarification resolves any potential discrepancy, confirming that these codes are not active diagnoses for this admission.",[],"The patient's acute cognitive and language deficits are attributed to a new left-sided stroke and possible toxic/metabolic encephalopathy, with documented improvement and no evidence of chronic AD/ADRD in the clinical note or medication history.",0.9,0.3,0.85,,26981.64,4,0.008,0,[],aef0c2ea-447d-4561-93a9-74d628c824cd,2026-05-01T19:37:04Z," 
+Name:  ___                Unit No:   ___
+ 
+Admission Date:  ___              Discharge Date:   ___
+ 
+Date of Birth:  ___             Sex:   F
+ 
+Service: NEUROLOGY
+ 
+Allergies: 
+Spironolactone
+ 
+Atte"
+18663902-DS-18,18663902,1,nsd,1,0,1,1,nsd,high,llm_arbitration,"[""ClinTextAgent"", ""DiagnosisAgent""]","ClinTextAgent identified strong evidence for baseline dementia from the Past Medical History ('Baseline dementia'), Chief Complaint ('chronic change in mental status'), Brief Hospital Course ('baseline chronically altered mental status (possibly dementia)'), and Discharge Condition ('Confused - baseline'), with high confidence. DiagnosisAgent corroborated this finding, identifying the same explicit documentation in the Past Medical History and Brief Hospital Course, and matched an ICD code (29420) for dementia, also with high confidence. MedicationAgent reported no AD/ADRD specific medications; however, the absence of these medications does not rule out a dementia diagnosis, as not all patients with dementia are on such medications. Based on the explicit and consistent documentation of 'Baseline dementia' across multiple sections of the clinical note, strongly supported by ClinTextAgent and DiagnosisAgent, I conclude that the patient has AD/ADRD. Regarding subtype, the clinical note describes 'baseline dementia' and 'chronically altered mental status' but lacks specific details (e.g., specific cognitive domains affected, progression pattern, clear vascular events linked to cognitive decline, or distinct behavioral/language profiles) to classify it as Alzheimer's, Vascular, or Frontotemporal dementia. Therefore, 'Non-specific dementia' is the most appropriate subtype.",,[],"The patient has a clearly documented history of baseline dementia in the Past Medical History and other sections of the clinical note, strongly supported by two specialist agents, but insufficient detail to classify a specific subtype.",0.75,0.3,0.9,,19049.25,4,0.008,0,[],aef0c2ea-447d-4561-93a9-74d628c824cd,2026-05-01T19:37:23Z," 
+Name:  ___                     Unit No:   ___
+ 
+Admission Date:  ___              Discharge Date:   ___
+ 
+Date of Birth:  ___             Sex:   F
+ 
+Service: SURGERY
+ 
+Allergies: 
+No Known Allergies"
+11966835-DS-2,11966835,1,na,1,0,1,1,nsd,high,llm_arbitration,"[""ClinTextAgent"", ""DiagnosisAgent""]","ClinTextAgent identified significant chronic memory loss, cognitive impairments, and functional decline (poor historian, disorientation, inability to participate in ROS, need for a court-appointed healthcare agent, safety concerns at home) from the History of Present Illness, Past Medical History, and physical exams, assessing it as likely dementia. DiagnosisAgent corroborated this by finding explicit mentions of 'hx memory loss' and 'cognitive deficits' in the Brief Hospital Course, along with functional decline (healthcare agent, safety concerns), supporting a chronic AD/ADRD diagnosis. MedicationAgent found no AD/ADRD specific medications, which is a neutral finding and does not negate the strong positive evidence from the other agents and the clinical note. Based on the combined evidence, the patient clearly has a chronic neurocognitive disorder consistent with dementia. For subtype, while memory loss is prominent, the patient also has a history of CVA, hypertension, atrial fibrillation, and CHF, which are significant vascular risk factors. The note does not provide enough detail to definitively classify as pure Alzheimer's or Vascular dementia, or to confirm a mixed picture. Therefore, 'non-specific dementia' is chosen.","MedicationAgent reported no AD/ADRD specific medications, which does not align with the positive diagnosis from ClinTextAgent and DiagnosisAgent. However, the absence of these medications does not rule out dementia, as not all patients are prescribed them or may have stopped them. This finding was considered but did not negate the strong clinical and diagnostic code evidence for dementia.",[],"The patient has clear and documented chronic memory loss, cognitive deficits, and functional decline requiring a healthcare agent, strongly supporting a diagnosis of dementia, but without sufficient detail to specify a subtype.",0.6,0.3,0.9,,28879.76,4,0.008,0,[],aef0c2ea-447d-4561-93a9-74d628c824cd,2026-05-01T19:37:52Z," 
+Name:  ___                  Unit No:   ___
+ 
+Admission Date:  ___              Discharge Date:   ___
+ 
+Date of Birth:  ___             Sex:   M
+ 
+Service: MEDICINE
+ 
+Allergies: 
+lisinopril / nifedip"
+11918851-DS-3,11918851,1,nsd,1,0,0,0,na,high,llm_arbitration,"[""ClinTextAgent"", ""MedicationAgent"", ""DiagnosisAgent""]","ClinTextAgent found no chronic AD/ADRD symptoms, identifying the acute 'change in mental status' as consistent with acute delirium or metabolic encephalopathy that resolved by discharge. MedicationAgent found no AD/ADRD specific medications on admission or discharge. DiagnosisAgent identified a potentially relevant code (29420) but explicitly stated it was not a current diagnosis and aligned with the interpretation of an acute, resolved mental status change. The complete clinical note strongly supports these findings, documenting significant medical instability (bleeding, critical potassium, renal injury) coinciding with the mental status change, and explicitly stating the patient's mental status at discharge was 'Clear and coherent' and 'Alert and interactive,' and that the patient 'understood the plan for future care.' All evidence points to an acute, transient cognitive impairment, not chronic AD/ADRD.",,[],"The patient experienced an acute, resolved mental status change consistent with delirium/encephalopathy during hospitalization, with no evidence of chronic AD/ADRD symptoms, medications, or current diagnosis documented in the clinical note or by specialist agents.",0.75,0.3,0.85,,19852.34,4,0.008,0,[],aef0c2ea-447d-4561-93a9-74d628c824cd,2026-05-01T19:38:12Z," 
+Name:  ___               Unit No:   ___
+ 
+Admission Date:  ___              Discharge Date:   ___
+ 
+Date of Birth:  ___             Sex:   M
+ 
+Service: SURGERY
+ 
+Allergies: 
+No Known Allergies / Adv"
+15325143-DS-22,15325143,0,na,1,0,1,1,nsd,high,llm_arbitration,"[""ClinTextAgent"", ""DiagnosisAgent""]","The ClinTextAgent identified strong evidence of chronic cognitive impairment, including the patient being an 'unreliable historian' and having persistent difficulties with medication recall, which suggests a pre-existing neurocognitive disorder beyond acute delirium. The DiagnosisAgent provided crucial support by identifying a current ICD code G312 (Alcohol-related neurodegeneration), which is directly supported by the patient's documented chronic heavy alcohol use ('1 bottle of vodka every day') and initial severe disorientation. While the MedicationAgent found no AD/ADRD specific medications, this does not contradict a diagnosis of alcohol-related neurodegeneration, as these medications are not typically prescribed for this specific subtype. The overall clinical picture, including the chronic alcohol use, the initial severe cognitive impairment, and the persistent deficits, strongly supports a diagnosis of alcohol-related neurodegeneration, which is a form of non-specific dementia.","The MedicationAgent's finding of no AD/ADRD specific medications is not a discrepancy with the diagnosis of alcohol-related neurodegeneration (G312), as these medications are not standard treatment for this specific subtype of dementia. All other agent findings are consistent and mutually reinforcing.",[],"The patient has chronic alcohol use disorder with documented chronic cognitive impairment and an ICD code for alcohol-related neurodegeneration, supporting a diagnosis of non-specific dementia.",0.6,0.3,0.9,,39236.81,4,0.008,0,[],aef0c2ea-447d-4561-93a9-74d628c824cd,2026-05-01T19:38:51Z," 
+Name:  ___                Unit No:   ___
+ 
+Admission Date:  ___              Discharge Date:   ___
+ 
+Date of Birth:  ___             Sex:   M
+ 
+Service: MEDICINE
+ 
+Allergies: 
+Penicillins
+ 
+Attendin"
+11816117-DS-21,11816117,1,ad,1,1,1,1,nsd,high,consensus_positive,"[""ClinTextAgent"", ""MedicationAgent"", ""DiagnosisAgent""]","All specialist agents reached consensus: MedicationAgent, ClinTextAgent, and DiagnosisAgent all positive. LLM arbitration skipped.",,[],Consensus positive — medication and clinical evidence both confirmed.,0.9,0.75,0.9,,13487.52,3,0.006,0,[],aef0c2ea-447d-4561-93a9-74d628c824cd,2026-05-01T19:39:05Z," 
+Name:  ___                     Unit No:   ___
+ 
+Admission Date:  ___              Discharge Date:   ___
+ 
+Date of Birth:  ___             Sex:   F
+ 
+Service: MEDICINE
+ 
+Allergies: 
+No Known Allergie"
+15226340-DS-4,15226340,1,ad,1,0,1,1,ad,high,llm_arbitration,"[""ClinTextAgent"", ""DiagnosisAgent""]","ClinTextAgent identified explicit documentation of 'h/o mod-severe alzheimers' and 'alzheimer's dementia dx in ___' in the History of Present Illness and Past Medical History, respectively. It also noted 'worsening Dementia with periods of Agitation' in the assessment and discharge, with the daughter reporting a 'constant progression' of decline. DiagnosisAgent corroborated this with matched ICD codes (3310, 29411) and consistent documentation in the Past Medical History, Discharge Diagnosis, and Discharge Condition ('Confused - always'), all strongly indicating chronic Alzheimer's dementia. MedicationAgent reported no AD/ADRD specific medications, which is noted but does not negate the diagnosis given the overwhelming and consistent evidence from the other agents and the clinical note. The absence of these medications can be clinically explained by factors such as advanced disease stage or a focus on managing behavioral symptoms with other psychotropic medications. Based on the explicit and consistent physician documentation of Alzheimer's dementia throughout the note, supported by the clinical presentation of progressive cognitive decline and agitation, the diagnosis of AD/ADRD is confirmed as Alzheimer's disease.","MedicationAgent's finding of no AD/ADRD specific medications is not a discrepancy regarding the diagnosis of AD/ADRD itself, but rather an observation about the patient's current treatment regimen. This does not contradict the diagnosis, as patients with advanced dementia or specific comorbidities may not be on these medications.",[],"The patient has a well-documented history and current presentation of chronic Alzheimer's dementia, explicitly stated in multiple sections of the clinical note and consistently supported by specialist assessments.",0.9,0.3,0.9,,26350.29,4,0.008,0,[],aef0c2ea-447d-4561-93a9-74d628c824cd,2026-05-01T19:39:31Z," 
+Name:  ___                 Unit No:   ___
+ 
+Admission Date:  ___              Discharge Date:   ___
+ 
+Date of Birth:  ___             Sex:   F
+ 
+Service: MEDICINE
+ 
+Allergies: 
+Patient recorded as h"
+16356172-DS-2,16356172,0,na,1,0,0,0,na,medium,llm_arbitration,"[""ClinTextAgent"", ""MedicationAgent"", ""DiagnosisAgent""]","ClinTextAgent found no cognitive symptoms or mention of chronic AD/ADRD in the clinical note, explicitly stating the patient was 'A&O x3' and 'memory intact' on both admission and discharge, with a high confidence score of 0.75. MedicationAgent found no AD/ADRD specific medications (e.g., Donepezil, Memantine) in the patient's admission or discharge medication lists, also with high confidence. DiagnosisAgent, despite initially flagging 'dx_found: True' for code 29420, immediately qualified this with 'is_current_diagnosis: False' and its reasoning explicitly stated 'no mention or documentation of chronic AD/ADRD, dementia, or any related neurodegenerative condition' in the note, and that the patient's mental status at discharge was 'Clear and coherent.' My review of the complete clinical note confirms these findings: there is no mention of AD/ADRD in the Past Medical History, History of Present Illness, or Discharge Diagnoses. The neurological examinations consistently document normal cognitive function, and the patient's presentation is fully explained by acute medical issues (fall, syncope, arrhythmia, hypokalemia, skull fracture). All evidence, including the detailed reasoning from all agents and the clinical note itself, strongly indicates the absence of AD/ADRD.","DiagnosisAgent's initial flag of 'dx_found: True' for code 29420 (Dementia, unspecified) was contradicted by its own subsequent finding of 'is_current_diagnosis: False' and its detailed reasoning, which explicitly stated no documentation of chronic AD/ADRD in the clinical note and noted the patient's 'Clear and coherent' mental status at discharge. This internal contradiction within DiagnosisAgent's report was resolved by prioritizing its detailed reasoning and the explicit clinical documentation over the initial 'dx_found: True' flag, especially given the low confidence score of 0.3 associated with that finding.","[""DiagnosisAgent: The 'dx_found: True' flag was overruled as it was directly contradicted by the agent's own reasoning ('is_current_diagnosis: False' and explicit denial of documentation for chronic AD/ADRD) and the overwhelming evidence in the clinical note, which consistently documented normal cognitive function.""]","The patient's clinical note, specialist reports, and explicit neurological assessments consistently indicate normal cognitive function with no evidence of chronic AD/ADRD.",0.75,0.3,0.3,Downgraded: overruled agents present,27200.68,4,0.008,0,[],aef0c2ea-447d-4561-93a9-74d628c824cd,2026-05-01T19:39:58Z," 
+Name:  ___                   Unit No:   ___
+ 
+Admission Date:  ___              Discharge Date:   ___
+ 
+Date of Birth:  ___             Sex:   F
+ 
+Service: MEDICINE
+ 
+Allergies: 
+codeine / propoxyph"
+13143465-DS-14,13143465,0,na,0,0,0,0,na,high,consensus_negative,[],All specialist agents reached consensus: no AD/ADRD evidence found. LLM arbitration skipped.,,[],"Consensus negative — no medication, symptom, or ICD evidence found.",0.75,0.3,0.85,,6179.47,2,0.004,0,[],aef0c2ea-447d-4561-93a9-74d628c824cd,2026-05-01T19:40:05Z," 
+Name:  ___                   Unit No:   ___
+ 
+Admission Date:  ___              Discharge Date:   ___
+ 
+Date of Birth:  ___             Sex:   M
+ 
+Service: SURGERY
+ 
+Allergies: 
+hydromorphone
+ 
+Atte"
+14164080-DS-12,14164080,1,nsd,1,0,1,1,vd,high,llm_arbitration,"[""ClinTextAgent"", ""DiagnosisAgent""]","DiagnosisAgent identified 'Cognitive disorder' in the Past Medical History, indicating a pre-existing chronic condition, and matched it to ICD code 29420. ClinTextAgent corroborated the chronic cognitive disorder based on the PMH, physical exam finding of AOx2-3 (disorientation), imaging showing chronic small vessel ischemic disease, and the mention of a health care proxy. MedicationAgent reported no AD/ADRD specific medications, which is a factual finding but does not negate the diagnosis. I weighed the explicit documentation of 'Cognitive disorder' in the PMH, the objective finding of AOx2-3, and the presence of a health care proxy as strong evidence for a current AD/ADRD condition. The 'Clear and coherent' mental status at discharge is interpreted as a return to baseline or absence of acute delirium, not negating the chronic cognitive disorder. For subtype, the CT head finding of 'chronic small vessel ischemic disease' combined with the patient's extensive vascular history (HTN, Afib, CVA, atherosclerosis) strongly points to a vascular etiology.","The discharge mental status of 'Clear and coherent' appears to contradict the 'AOx2-3' noted in the physical exam. However, both ClinTextAgent and DiagnosisAgent correctly interpret that a clear mental status at discharge does not negate a pre-existing chronic cognitive disorder, which the patient's PMH explicitly states. This is likely a return to baseline or absence of acute delirium, rather than full cognitive function.",[],"The patient has a chronic cognitive disorder, explicitly documented in the past medical history and supported by current findings of disorientation and chronic small vessel ischemic disease, consistent with vascular dementia.",0.75,0.3,0.9,,24454.83,4,0.008,0,[],aef0c2ea-447d-4561-93a9-74d628c824cd,2026-05-01T19:40:29Z," 
+Name:  ___                  Unit No:   ___
+ 
+Admission Date:  ___              Discharge Date:   ___
+ 
+Date of Birth:  ___             Sex:   F
+ 
+Service: SURGERY
+ 
+Allergies: 
+No Known Allergies / "
+16091399-DS-16,16091399,0,na,0,0,0,0,na,high,consensus_negative,[],All specialist agents reached consensus: no AD/ADRD evidence found. LLM arbitration skipped.,,[],"Consensus negative — no medication, symptom, or ICD evidence found.",0.75,0.3,0.85,,10219.96,2,0.004,0,[],aef0c2ea-447d-4561-93a9-74d628c824cd,2026-05-01T19:40:39Z," 
+Name:  ___                    Unit No:   ___
+ 
+Admission Date:  ___              Discharge Date:   ___
+ 
+Date of Birth:  ___             Sex:   F
+ 
+Service: MEDICINE
+ 
+Allergies: 
+metformin
+ 
+Attend"
+14728164-DS-10,14728164,1,nsd,1,0,1,1,nsd,high,llm_arbitration,"[""ClinTextAgent"", ""DiagnosisAgent""]","1. ClinTextAgent identified multiple explicit mentions of 'dementia' in the History of Present Illness, Past Medical History, Brief Hospital Course, and Discharge Diagnosis, along with descriptions of 'predominant short term memory loss' and 'confused - sometimes', indicating chronic cognitive impairment. 2. DiagnosisAgent corroborated this by identifying ICD codes G3183 (Dementia with Lewy bodies) and F0280 (Dementia in other diseases classified elsewhere, often associated with Parkinson's disease), confirming these codes were supported by consistent documentation in the clinical note. 3. MedicationAgent reported no AD/ADRD specific medications, which is a neutral finding and does not contradict the strong evidence for dementia from the other agents. 4. Based on the explicit physician documentation of dementia, the presence of cognitive symptoms, and supporting ICD codes, the patient clearly has chronic dementia. 5. For subtype classification, the clinical note repeatedly links the dementia to Parkinsonism/Parkinson's disease, stating 'Predominant short term memory loss thought to be a manifestation ___ disease' (referring to Parkinson's). While this indicates a specific subtype (Parkinson's Disease Dementia or Lewy Body Dementia), these specific categories are not available in the provided options (ad, vd, ftd). Therefore, 'nsd' (non-specific dementia) is chosen as the best fit among the given choices, as it is not Alzheimer's, Vascular, or Frontotemporal dementia.",,[],"The patient has chronic dementia explicitly documented in the clinical note and supported by ICD codes, with features consistent with Parkinson's Disease Dementia, which falls under 'non-specific dementia' given the provided subtype options.",0.9,0.3,0.9,,28052.06,4,0.008,0,[],aef0c2ea-447d-4561-93a9-74d628c824cd,2026-05-01T19:41:07Z," 
+Name:  ___          Unit No:   ___
+ 
+Admission Date:  ___              Discharge Date:   ___
+ 
+Date of Birth:  ___             Sex:   F
+ 
+Service: MEDICINE
+ 
+Allergies: 
+No Known Allergies / Adverse"
+10426922-DS-19,10426922,1,vd,1,1,1,1,nsd,high,consensus_positive,"[""ClinTextAgent"", ""MedicationAgent"", ""DiagnosisAgent""]","All specialist agents reached consensus: MedicationAgent, ClinTextAgent, and DiagnosisAgent all positive. LLM arbitration skipped.",,[],Consensus positive — medication and clinical evidence both confirmed.,0.9,0.95,0.9,,12195.97,2,0.004,0,[],aef0c2ea-447d-4561-93a9-74d628c824cd,2026-05-01T19:41:20Z," 
+Name:  ___                     Unit No:   ___
+ 
+Admission Date:  ___              Discharge Date:   ___
+ 
+Date of Birth:  ___             Sex:   F
+ 
+Service: SURGERY
+ 
+Allergies: 
+fluoxetine
+ 
+Atten"
+18338919-DS-6,18338919,1,nsd,1,1,1,1,nsd,high,consensus_positive,"[""ClinTextAgent"", ""MedicationAgent"", ""DiagnosisAgent""]","All specialist agents reached consensus: MedicationAgent, ClinTextAgent, and DiagnosisAgent all positive. LLM arbitration skipped.",,[],Consensus positive — medication and clinical evidence both confirmed.,0.9,0.75,0.9,,10011.91,3,0.006,0,[],aef0c2ea-447d-4561-93a9-74d628c824cd,2026-05-01T19:41:30Z," 
+Name:  ___                       Unit No:   ___
+ 
+Admission Date:  ___              Discharge Date:   ___
+ 
+Date of Birth:  ___             Sex:   F
+ 
+Service: MEDICINE
+ 
+Allergies: 
+Levaquin / sulf"
+19428226-DS-11,19428226,0,na,0,0,0,0,na,high,consensus_negative,[],All specialist agents reached consensus: no AD/ADRD evidence found. LLM arbitration skipped.,,[],"Consensus negative — no medication, symptom, or ICD evidence found.",0.75,0.3,0.85,,7515.98,2,0.004,0,[],aef0c2ea-447d-4561-93a9-74d628c824cd,2026-05-01T19:41:37Z," 
+Name:  ___                   Unit No:   ___
+ 
+Admission Date:  ___              Discharge Date:   ___
+ 
+Date of Birth:  ___             Sex:   M
+ 
+Service: PLASTIC
+ 
+Allergies: 
+No Known Allergies /"
+10251379-DS-11,10251379,1,nsd,1,0,1,1,nsd,medium,llm_arbitration,"[""ClinTextAgent"", ""DiagnosisAgent""]","ClinTextAgent identified explicit physician documentation of 'history of dementia' and 'baseline dementia' in the History of Present Illness and Discharge Summary, with high confidence, indicating a chronic cognitive impairment. MedicationAgent found no specific AD/ADRD medications, which does not negate the diagnosis given the explicit textual evidence. DiagnosisAgent identified ICD codes for dementia (3310, 29410) but stated it could not confirm chronicity from specific sections (PMH, Discharge Dx, Discharge Condition). I weighed the explicit physician documentation of chronic dementia (found by ClinTextAgent) as the strongest evidence, overriding the DiagnosisAgent's limited scope of search for chronicity. The clinical note provides insufficient detail to classify a specific dementia subtype (e.g., no clear evidence for AD, VD, or FTD), leading to a non-specific dementia classification.","DiagnosisAgent identified ICD codes for dementia but stated it could not confirm chronicity from specific sections (PMH, Discharge Dx, Discharge Condition). This was resolved by prioritizing the ClinTextAgent's finding of explicit physician documentation of 'history of dementia' and 'baseline dementia' in the HPI and Discharge Summary, which directly supports the chronicity of the condition and aligns with the presence of the dementia ICD codes.","[""DiagnosisAgent: The agent's assessment that coding evidence for chronic AD/ADRD is absent was overruled because the clinical note explicitly states 'history of dementia' and 'baseline dementia' in the HPI and Discharge Summary, which are strong physician documentations of a chronic condition, despite the agent's inability to find this in its designated search areas (PMH, Discharge Dx, Discharge Condition).""]","The patient has a clearly documented chronic history of non-specific dementia, explicitly stated as her baseline cognitive state and contributing to her clinical presentation and care decisions.",0.9,0.3,0.3,Downgraded: overruled agents present,21984.02,4,0.008,0,[],aef0c2ea-447d-4561-93a9-74d628c824cd,2026-05-01T19:41:59Z," 
+Name:  ___                Unit No:   ___
+ 
+Admission Date:  ___              Discharge Date:   ___
+ 
+Date of Birth:  ___             Sex:   F
+ 
+Service: MEDICINE
+ 
+Allergies: 
+Codeine
+ 
+Attending: _"
+10922531-DS-15,10922531,1,nsd,1,0,1,1,nsd,high,llm_arbitration,"[""ClinTextAgent"", ""DiagnosisAgent""]","ClinTextAgent identified a clear history of gradual cognitive and functional decline over the past year, explicitly supported by neurology's assessment of 'likely baseline dementia' and 'chronic progressive dementia' in the problem-based summary. DiagnosisAgent corroborated this with the F0390 ICD code and direct quotes from the problem-based summary confirming 'chronic progressive dementia.' MedicationAgent found no AD/ADRD specific medications, which is a negative finding but does not negate the strong clinical and diagnostic code evidence for dementia. The clinical note itself, particularly the 'PROBLEM-BASED SUMMARY,' explicitly states 'acute worsening of chronic progressive dementia' and that neurology 'feels that pt has likely baseline dementia given his gradual cognitive decline over the last year.' While the discharge summary's primary diagnosis is 'Altered mental status,' this is consistent with the acute presentation, while the underlying chronic condition is clearly documented as dementia. For subtype, despite strong features suggestive of Lewy Body Dementia (visual hallucinations, paranoia, resting tremor) and ClinTextAgent's interpretation, the clinical note explicitly states 'it is unclear if there is an underlying dementia syndrome at play' and recommends 'continued workup as an outpatient for a possible ___ syndrome,' indicating the specific subtype is not definitively established within this hospitalization, thus 'nsd' is appropriate.","The discharge summary lists 'Altered mental status' as the primary diagnosis, which appears to contradict the documentation of 'chronic progressive dementia' in the problem-based summary and neurology consults. This is resolved by understanding that 'Altered mental status' was the acute presenting complaint and reason for admission, while 'chronic progressive dementia' is the underlying, pre-existing condition that acutely worsened. The F0390 code also supports the presence of dementia.",[],"The patient has clear and consistent documentation of chronic progressive dementia from clinical history, neurology assessments, and diagnostic coding, with features suggestive of Lewy Body Dementia, but the specific subtype is not definitively established within this note.",0.9,0.3,0.9,,32252.59,4,0.008,0,[],aef0c2ea-447d-4561-93a9-74d628c824cd,2026-05-01T19:42:31Z," 
+Name:  ___                 Unit No:   ___
+ 
+Admission Date:  ___              Discharge Date:   ___
+ 
+Date of Birth:  ___             Sex:   M
+ 
+Service: MEDICINE
+ 
+Allergies: 
+No Known Allergies / "
+15535729-DS-17,15535729,0,na,0,0,0,0,na,high,consensus_negative,[],All specialist agents reached consensus: no AD/ADRD evidence found. LLM arbitration skipped.,,[],"Consensus negative — no medication, symptom, or ICD evidence found.",0.75,0.3,0.85,,6868.81,2,0.004,0,[],aef0c2ea-447d-4561-93a9-74d628c824cd,2026-05-01T19:42:38Z," 
+Name:  ___                   Unit No:   ___
+ 
+Admission Date:  ___              Discharge Date:   ___
+ 
+Date of Birth:  ___             Sex:   M
+ 
+Service: MEDICINE
+ 
+Allergies: 
+No Known Allergies "
+18136313-DS-2,18136313,0,na,0,0,0,0,na,high,consensus_negative,[],All specialist agents reached consensus: no AD/ADRD evidence found. LLM arbitration skipped.,,[],"Consensus negative — no medication, symptom, or ICD evidence found.",0.75,0.3,0.85,,6870.56,2,0.004,0,[],aef0c2ea-447d-4561-93a9-74d628c824cd,2026-05-01T19:42:45Z," 
+Name:  ___               Unit No:   ___
+ 
+Admission Date:  ___              Discharge Date:   ___
+ 
+Date of Birth:  ___             Sex:   F
+ 
+Service: MEDICINE
+ 
+Allergies: 
+Bactrim
+ 
+Attending: __"
+18877270-DS-21,18877270,0,na,0,0,0,0,na,high,consensus_negative,[],All specialist agents reached consensus: no AD/ADRD evidence found. LLM arbitration skipped.,,[],"Consensus negative — no medication, symptom, or ICD evidence found.",0.75,0.3,0.85,,10447.42,2,0.004,0,[],aef0c2ea-447d-4561-93a9-74d628c824cd,2026-05-01T19:42:56Z," 
+Name:  ___                    Unit No:   ___
+ 
+Admission Date:  ___              Discharge Date:   ___
+ 
+Date of Birth:  ___             Sex:   M
+ 
+Service: CARDIOTHORACIC
+ 
+Allergies: 
+amlodipine /"
+18411232-DS-10,18411232,1,nsd,1,1,1,1,nsd,high,consensus_positive,"[""ClinTextAgent"", ""MedicationAgent"", ""DiagnosisAgent""]","All specialist agents reached consensus: MedicationAgent, ClinTextAgent, and DiagnosisAgent all positive. LLM arbitration skipped.",,[],Consensus positive — medication and clinical evidence both confirmed.,0.9,0.75,0.9,,14267.05,3,0.006,0,[],aef0c2ea-447d-4561-93a9-74d628c824cd,2026-05-01T19:43:10Z," 
+Name:  ___                      Unit No:   ___
+ 
+Admission Date:  ___              Discharge Date:   ___
+ 
+Date of Birth:  ___             Sex:   M
+ 
+Service: NEUROLOGY
+ 
+Allergies: 
+No Known Allerg"
+11443963-DS-13,11443963,1,nsd,1,0,1,1,nsd,medium,llm_arbitration,"[""ClinTextAgent"", ""DiagnosisAgent""]","1. ClinTextAgent identified explicit documentation of '___ body dementia' in the Past Medical History and Brief Hospital Course, supported by consistent clinical findings such as 'Oriented x0,' 'Confused - always,' 'cogwheel rigidity,' and the use of Carbidopa-Levodopa. This led to a high-confidence assessment of chronic advanced Lewy Body Dementia. 
+2. DiagnosisAgent corroborated this with explicit documentation of '___ body dementia' in the Past Medical History and Brief Hospital Course, and 'Confused - always' in the Discharge Condition, matching it to a relevant diagnostic code (F0280) and assessing a clear and consistent chronic AD/ADRD diagnosis. 
+3. MedicationAgent reported no AD/ADRD specific cognitive treatment medications (cholinesterase inhibitors, NMDA antagonists) and concluded 'No medication evidence for AD/ADRD treatment was found.' 
+4. As the attending physician, I weighed the explicit and consistent documentation of 'Lewy Body Dementia' from ClinTextAgent and DiagnosisAgent (both high confidence). I noted MedicationAgent's finding but overruled its overall assessment regarding medication evidence. While it correctly identified the absence of specific cognitive enhancers, the clinical note and MedicationAgent's own list *did* include Carbidopa-Levodopa, which is a key medication for the parkinsonian symptoms often seen in Lewy Body Dementia. This medication, combined with the documented cogwheel rigidity, strongly supports the Lewy Body Dementia diagnosis. Therefore, the patient clearly has AD/ADRD, specifically Lewy Body Dementia. Since Lewy Body Dementia is not an explicit option in the subtype list (ad, vd, ftd), 'nsd' (non-specific dementia) is selected as the most appropriate category for a clearly identified but unlisted subtype.","MedicationAgent's assessment that no medication evidence for AD/ADRD treatment was found was overruled, as explained in the `overruled_agents` field.","[""MedicationAgent: While the agent correctly identified the absence of cholinesterase inhibitors and NMDA receptor antagonists, its overall assessment that 'No medication evidence for AD/ADRD treatment was found' is overruled. The presence of Carbidopa-Levodopa, which the agent itself listed, is significant medication evidence supporting the diagnosis of Lewy Body Dementia by addressing its parkinsonian features.""]","The patient has a clear and consistently documented diagnosis of advanced Lewy Body Dementia, supported by explicit physician statements, chronic severe cognitive impairment, and parkinsonian features like cogwheel rigidity and Carbidopa-Levodopa use.",0.9,0.3,0.9,Downgraded: overruled agents present,33454.42,4,0.008,0,[],aef0c2ea-447d-4561-93a9-74d628c824cd,2026-05-01T19:43:43Z," 
+Name:  ___                  Unit No:   ___
+ 
+Admission Date:  ___              Discharge Date:   ___
+ 
+Date of Birth:  ___             Sex:   M
+ 
+Service: MEDICINE
+ 
+Allergies: 
+No Known Allergies /"
+18371833-DS-19,18371833,0,na,0,0,0,0,na,high,consensus_negative,[],All specialist agents reached consensus: no AD/ADRD evidence found. LLM arbitration skipped.,,[],"Consensus negative — no medication, symptom, or ICD evidence found.",0.75,0.3,0.85,,8958.26,2,0.004,0,[],aef0c2ea-447d-4561-93a9-74d628c824cd,2026-05-01T19:43:52Z," 
+Name:  ___                 Unit No:   ___
+ 
+Admission Date:  ___              Discharge Date:   ___
+ 
+Date of Birth:  ___             Sex:   M
+ 
+Service: MEDICINE
+ 
+Allergies: 
+Percocet / Dilaudid
+ "
+12695987-DS-18,12695987,0,na,0,0,1,0,na,high,llm_arbitration,"[""ClinTextAgent"", ""MedicationAgent"", ""DiagnosisAgent""]","ClinTextAgent identified cognitive and behavioral impairments but explicitly stated they were sequelae of severe traumatic brain injury (TBI), not pre-existing AD/ADRD, and noted no documentation of chronic AD/ADRD. MedicationAgent found no AD/ADRD specific medications, indicating no active treatment for such a condition. DiagnosisAgent found no AD/ADRD ICD codes, further supporting the absence of a formal diagnosis. The complete clinical note corroborated these findings, detailing a severe TBI and explicitly stating that the observed confusion and cognitive difficulties were expected post-TBI sequelae, with no mention of pre-existing or new-onset chronic dementia. Based on the consistent lack of evidence for AD/ADRD from all agents and the clear attribution of cognitive symptoms to acute TBI in the clinical note, the final diagnosis is no AD/ADRD.",,[],"The patient's cognitive and behavioral impairments are clearly documented as sequelae of a severe traumatic brain injury, with no evidence of pre-existing or new-onset Alzheimer's disease or Alzheimer's disease-related dementias.",0.35,0.3,0.85,,28378.51,3,0.006,0,[],aef0c2ea-447d-4561-93a9-74d628c824cd,2026-05-01T19:44:21Z," 
+Name:  ___                Unit No:   ___
+ 
+Admission Date:  ___              Discharge Date:   ___
+ 
+Date of Birth:  ___             Sex:   M
+ 
+Service: NEUROSURGERY
+ 
+Allergies: 
+No Allergies/ADRs "
+19731136-DS-8,19731136,1,vd,1,1,0,1,vd,medium,llm_arbitration,"[""MedicationAgent""]","MedicationAgent identified the patient is currently on donepezil, an AD/ADRD medication, with high confidence. The clinical note explicitly confirms donepezil on both admission and discharge medication lists. Furthermore, the Past Medical History section of the clinical note clearly lists 'Vascular dementia' as a pre-existing condition. DiagnosisAgent's reasoning that there was 'no documentation... that indicates a pre-existing chronic diagnosis of dementia' is factually incorrect given the PMH and medication list. While the patient's acute altered mental status resolved, this does not negate the presence of a chronic underlying dementia, which is supported by the PMH and ongoing medication. ClinTextAgent's report was an agent error and provided no useful information. Therefore, the patient has a current diagnosis of vascular dementia.","DiagnosisAgent's assessment that the documentation describes an acute, resolved altered mental status 'with no evidence of underlying chronic AD/ADRD' directly contradicts the explicit mention of 'Vascular dementia' in the Past Medical History and the ongoing prescription of Donepezil, an AD/ADRD medication, as identified by MedicationAgent and confirmed in the clinical note.","[""ClinTextAgent: Agent error, unparseable response, provided no reliable information."", ""DiagnosisAgent: Incorrectly concluded no evidence of underlying chronic AD/ADRD, failing to identify 'Vascular dementia' in the Past Medical History and donepezil use, and misinterpreting the resolution of acute delirium as absence of chronic dementia.""]","The patient has a documented history of vascular dementia in the Past Medical History and is currently prescribed donepezil, an AD/ADRD medication, confirming a chronic AD/ADRD diagnosis despite resolution of acute altered mental status.",0.0,0.95,0.85,Downgraded: overruled agents present,18731.93,3,0.006,1,"[""ClinTextAgent""]",aef0c2ea-447d-4561-93a9-74d628c824cd,2026-05-01T19:44:39Z," 
+Name:  ___                   Unit No:   ___
+ 
+Admission Date:  ___              Discharge Date:   ___
+ 
+Date of Birth:  ___             Sex:   F
+ 
+Service: MEDICINE
+ 
+Allergies: 
+Bactrim / Shellfish"
+15782806-DS-7,15782806,1,ad,1,0,1,1,nsd,high,llm_arbitration,"[""ClinTextAgent"", ""DiagnosisAgent""]","1. ClinTextAgent identified chronic cognitive dysfunction, including increased word-finding difficulty, confusion, memory problems, and executive function deficits, progressing over the past year. It noted strong concern for possible dementia, specifically Lewy body disease, with active investigation (neuropsych testing, cognitive neurology referral). This assessment is highly confident (0.75) and directly supported by the clinical note's HPI, PMH, and neurological exam findings. 
+2. DiagnosisAgent identified an AD/ADRD diagnostic code (3310) and linked it to the clinical note's documentation of chronic cognitive decline and explicit concern for dementia over the past year. This agent's assessment is highly confident (0.9) and corroborates the presence of AD/ADRD. 
+3. MedicationAgent found no AD/ADRD specific medications. This finding does not contradict the diagnosis of dementia, as the diagnosis is noted as 'possible' and 'being assessed,' implying treatment may not yet be initiated or finalized. The low confidence score (0.3) for the *absence* of medications also suggests it's not strong evidence against the diagnosis. 
+4. Clinical Note Review: The note explicitly states 'significant concern regarding a possible dementia' and 'Cognitive dysfunction: concern regarding difficulties with memory and attention... Concern for possible dementia, in particular for Lewy body disease.' The neurological exam confirms significant cognitive impairment. While the discharge diagnosis is 'Epilepsy,' the extensive documentation of cognitive decline and the active workup for dementia strongly indicate that AD/ADRD is present or highly suspected and being actively managed. 
+5. Conclusion for AD/ADRD: Based on the converging strong evidence from ClinTextAgent and DiagnosisAgent, further supported by the clinical note's detailed description of chronic, progressive cognitive dysfunction and explicit concern for dementia, the patient is determined to have AD/ADRD. 
+6. Conclusion for Subtype: The clinical note explicitly states 'Concern for possible dementia, in particular for Lewy body disease.' While Lewy body dementia is a specific neurodegenerative subtype, it is not one of the provided classification options ('ad', 'vd', 'ftd'). Therefore, despite the specific suspicion, the subtype is classified as 'nsd' (non-specific dementia) within the given framework.","The primary discrepancy is between the 'Discharge Diagnosis' (Epilepsy) and the extensive documentation within the HPI and PMH regarding 'concern for possible dementia' and the DiagnosisAgent's finding of code 3310. This is resolved by prioritizing the detailed clinical narrative and ongoing assessment over a single line in the discharge diagnosis, which often reflects the primary reason for *hospitalization* rather than all active chronic conditions. The DiagnosisAgent's code 3310, supported by the chronic nature and concern, aligns with the clinical narrative.",[],"The patient presents with chronic, progressive cognitive dysfunction, explicit concern for Lewy body dementia, and objective cognitive deficits, strongly supporting an AD/ADRD diagnosis despite no specific treatment initiated during this admission.",0.75,0.3,0.9,,46411.58,4,0.008,0,[],aef0c2ea-447d-4561-93a9-74d628c824cd,2026-05-01T19:45:26Z," 
+Name:  ___                Unit No:   ___
+ 
+Admission Date:  ___              Discharge Date:   ___
+ 
+Date of Birth:  ___             Sex:   F
+ 
+Service: NEUROLOGY
+ 
+Allergies: 
+Iodine / Torecan
+ 
+At"
