@@ -21,81 +21,87 @@ from agents.synthesizer_agent import (
     _compute_score,
     run_synthesizer_agent,
 )
+from schemas import (
+    ClinTextAgentOutput,
+    DiagnosisAgentOutput,
+    MedicationAgentOutput,
+    SynthesizerOutput,
+)
 
 
 # ── Fixtures ────────────────────────────────────────────────────────────────
 
 @pytest.fixture
 def clin_positive():
-    return {
-        "symptoms_found": True,
-        "confidence": "high",
-        "confidence_score": 0.7,
-        "evidence_list": ["progressive memory loss documented", "cognitive decline in A&P"],
-        "reasoning": "Clear dementia documented.",
-        "assessment": "AD/ADRD present",
-    }
+    return ClinTextAgentOutput(
+        symptoms_found=True,
+        confidence="high",
+        confidence_score=0.7,
+        evidence_list=["progressive memory loss documented", "cognitive decline in A&P"],
+        reasoning="Clear dementia documented.",
+        assessment="AD/ADRD present",
+    )
 
 @pytest.fixture
 def clin_negative():
-    return {
-        "symptoms_found": False,
-        "confidence": "low",
-        "confidence_score": 0.1,
-        "evidence_list": [],
-        "reasoning": "No cognitive symptoms found.",
-        "assessment": "No AD/ADRD",
-    }
+    return ClinTextAgentOutput(
+        symptoms_found=False,
+        confidence="low",
+        confidence_score=0.1,
+        evidence_list=[],
+        reasoning="No cognitive symptoms found.",
+        assessment="No AD/ADRD",
+    )
 
 @pytest.fixture
 def med_positive():
-    return {
-        "meds_found": True,
-        "medications": ["donepezil"],
-        "status": "current",
-        "source": "structured",
-        "confidence": "high",
-        "confidence_score": 0.9,
-        "reasoning": "Donepezil prescribed.",
-        "assessment": "Active AD medication",
-    }
+    return MedicationAgentOutput(
+        meds_found=True,
+        medications=["donepezil"],
+        status="current",
+        source="structured",
+        confidence="high",
+        confidence_score=0.9,
+        reasoning="Donepezil prescribed.",
+        assessment="Active AD medication",
+    )
 
 @pytest.fixture
 def med_negative():
-    return {
-        "meds_found": False,
-        "medications": [],
-        "status": "none",
-        "source": "none",
-        "confidence": "low",
-        "confidence_score": 0.0,
-        "reasoning": "No AD medications found.",
-        "assessment": "No medication evidence",
-    }
+    return MedicationAgentOutput(
+        meds_found=False,
+        medications=[],
+        status="none",
+        source="none",
+        confidence="low",
+        confidence_score=0.0,
+        reasoning="No AD medications found.",
+        assessment="No medication evidence",
+    )
 
 @pytest.fixture
 def dx_positive():
-    return {
-        "dx_found": True,
-        "matched_codes": ["F0280"],
-        "is_current_diagnosis": True,
-        "confidence": "high",
-        "confidence_score": 0.8,
-        "reasoning": "F0280 present and current.",
-        "assessment": "Current AD diagnosis",
-    }
+    return DiagnosisAgentOutput(
+        dx_found=True,
+        matched_codes=["F0280"],
+        is_current_diagnosis=True,
+        confidence="high",
+        confidence_score=0.8,
+        reasoning="F0280 present and current.",
+        assessment="Current AD diagnosis",
+    )
 
 @pytest.fixture
 def dx_negative():
-    return {
-        "dx_found": False,
-        "matched_codes": [],
-        "is_current_diagnosis": False,
-        "confidence": "low",
-        "confidence_score": 0.0,
-        "reasoning": "No AD/ADRD ICD codes.",
-        "assessment": "No ICD evidence",
-    }
+    return DiagnosisAgentOutput(
+        dx_found=False,
+        matched_codes=[],
+        is_current_diagnosis=False,
+        confidence="low",
+        confidence_score=0.0,
+        reasoning="No AD/ADRD ICD codes.",
+        assessment="No ICD evidence",
+    )
 
 
 # ── _parse_llm_json ──────────────────────────────────────────────────────────
@@ -164,25 +170,24 @@ class TestConsensusEarlyExit:
     def test_consensus_positive_skips_llm(self, clin_positive, med_positive, dx_negative):
         """med + clin both positive → predict 1 without LLM call."""
         result = run_synthesizer_agent(dx_negative, med_positive, clin_positive, llm=None)
-        assert result["final_prediction"] == 1
-        assert result["synthesis_mode"] == "consensus_positive"
-        assert result["confidence"] == "high"
-        assert result["discrepancy"] is None
+        assert result.final_prediction == 1
+        assert result.synthesis_mode == "consensus_positive"
+        assert result.confidence == "high"
+        assert result.discrepancy is None
 
     def test_consensus_negative_skips_llm(self, clin_negative, med_negative, dx_negative):
         """All three negative → predict 0 without LLM call."""
         result = run_synthesizer_agent(dx_negative, med_negative, clin_negative, llm=None)
-        assert result["final_prediction"] == 0
-        assert result["synthesis_mode"] == "consensus_negative"
-        assert result["confidence"] == "high"
-        assert result["subtype"] == "na"
+        assert result.final_prediction == 0
+        assert result.synthesis_mode == "consensus_negative"
+        assert result.confidence == "high"
+        assert result.subtype == "na"
 
     def test_consensus_positive_returns_required_fields(self, clin_positive, med_positive, dx_negative):
         result = run_synthesizer_agent(dx_negative, med_positive, clin_positive, llm=None)
-        for field in ["final_prediction", "subtype", "confidence", "synthesis_mode",
-                      "causal_chain", "contributing_agents", "confidence_score_clin",
-                      "confidence_score_med", "confidence_score_dx"]:
-            assert field in result, f"Missing field: {field}"
+        # Pydantic validation confirms all fields exist, have correct types, and valid Literal values
+        validated = SynthesizerOutput(**result.model_dump())
+        assert validated.final_prediction == result.final_prediction
 
 
 # ── _apply_confidence_correction ────────────────────────────────────────────
@@ -221,12 +226,12 @@ class TestConfidenceCorrection:
     def test_rule2_weak_evidence_downgrades_to_low(
         self, dx_negative, med_negative
     ):
-        # clin also weak
-        clin_weak = {
-            "symptoms_found": True,
-            "confidence_score": 0.2,
-            "evidence_list": ["one vague mention"],
-        }
+        clin_weak = ClinTextAgentOutput(
+            symptoms_found=True,
+            confidence="low",
+            confidence_score=0.2,
+            evidence_list=["one vague mention"],
+        )
         result = self._base_result("high")
         out = _apply_confidence_correction(result, clin_weak, med_negative, dx_negative)
         assert out["confidence"] == "low"
@@ -234,14 +239,14 @@ class TestConfidenceCorrection:
     def test_rule3_sparse_evidence_downgrades_high_to_low(
         self, clin_negative, med_negative, dx_positive
     ):
-        clin_sparse = {
-            "symptoms_found": True,
-            "confidence_score": 0.2,
-            "evidence_list": ["one item"],  # < 2
-        }
-        med_zero = {**med_negative, "confidence_score": 0.0}
+        clin_sparse = ClinTextAgentOutput(
+            symptoms_found=True,
+            confidence="low",
+            confidence_score=0.2,
+            evidence_list=["one item"],  # < 2
+        )
         result = self._base_result("high")
-        out = _apply_confidence_correction(result, clin_sparse, med_zero, dx_positive)
+        out = _apply_confidence_correction(result, clin_sparse, med_negative, dx_positive)
         assert out["confidence"] == "low"
 
     def test_no_correction_when_strong_evidence(
@@ -296,10 +301,10 @@ class TestSubtypeValidation:
         self, clin_positive, med_positive, dx_negative
     ):
         result = run_synthesizer_agent(dx_negative, med_positive, clin_positive, llm=None)
-        assert result["subtype"] in self.VALID_SUBTYPES
+        assert result.subtype in self.VALID_SUBTYPES
 
     def test_consensus_negative_returns_na(
         self, clin_negative, med_negative, dx_negative
     ):
         result = run_synthesizer_agent(dx_negative, med_negative, clin_negative, llm=None)
-        assert result["subtype"] == "na"
+        assert result.subtype == "na"

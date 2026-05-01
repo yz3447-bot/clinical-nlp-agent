@@ -379,7 +379,7 @@ def _verdict_html(result: dict) -> str:
 
     latency  = result.get("latency_ms", 0)
     calls    = result.get("llm_calls", "—")
-    cost_usd = result.get("estimated_cost_usd", 0)
+    cost_usd = result.get("estimated_cost_usd_proxy", 0)
 
     verdict_cls = "verdict-pos" if pred == 1 else "verdict-neg"
     verdict_txt = "AD/ADRD Present" if pred == 1 else "No AD / ADRD"

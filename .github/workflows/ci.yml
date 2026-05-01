@@ -34,40 +34,42 @@ jobs:
       # focused on correctness rather than formatting preferences.
       - name: Lint with flake8
         run: |
-          flake8 agents/ api.py \
+          flake8 agents/ api.py pipeline.py main_c.py schemas.py logger.py \
             --select=E9,F63,F7,F82 \
             --show-source \
             --statistics
 
-      # Verify all four agent modules import cleanly — catches missing dependencies,
-      # circular imports, and syntax errors in agent code without needing an API key
-      - name: Import check — agents
+      # Verify all agent modules and core pipeline modules import cleanly —
+      # catches missing dependencies, circular imports, and syntax errors
+      # without needing an API key
+      - name: Import check -- agents and pipeline
         run: |
           python -c "
           from agents.clintext_agent import run_clintext_agent
           from agents.medication_agent import run_medication_agent
           from agents.diagnosis_agent import run_diagnosis_agent
           from agents.synthesizer_agent import run_synthesizer_agent
-          print('All agents imported successfully')
+          from pipeline import run_pipeline, EVIDENCE_COLUMNS
+          print('All agents and pipeline imported successfully')
           "
 
       # Verify the FastAPI app module imports cleanly — catches schema errors,
       # missing modules, and top-level exceptions without starting the server
       # or requiring GEMINI_API_KEY (lifespan runs only on uvicorn startup)
-      - name: Import check — api
+      - name: Import check -- api
         run: python -c "import api; print('API imported successfully')"
 
       # Run the eval harness against existing predictions (no LLM, no API key).
-      # Skipped silently when predictions_c.csv is absent (e.g. first push).
-      # Fails the build if sensitivity drops below 0.90.
-      - name: Eval harness — sensitivity gate
+      # Skipped when predictions_c.csv is absent (e.g. first push or CI without real data).
+      # Fails the build if sensitivity drops below threshold when predictions are present.
+      - name: Eval harness -- sensitivity gate
         run: |
           if [ -f outputs/predictions_c.csv ]; then
             python eval/eval_harness.py --predictions outputs/predictions_c.csv
           else
-            echo "No predictions_c.csv found — skipping eval gate."
+            echo "No predictions_c.csv found -- skipping eval gate."
           fi
 
-      # Run unit tests �" verifies core synthesizer logic without any API key
-      - name: Unit tests �" pytest
+      # Run unit tests -- verifies core synthesizer and pipeline logic without any API key
+      - name: Unit tests -- pytest
         run: pytest tests/ -v

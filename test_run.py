@@ -18,7 +18,9 @@ from pathlib import Path
 
 import pandas as pd
 
-from main_c import build_llm, process_row, find_csv_files
+from main_c import build_llm, process_row, find_csv_files, init_evidence_csv
+from rag.knowledge_base import KnowledgeBase
+from rag.seed_data import SEED_CASES
 
 SEPARATOR = "=" * 60
 
@@ -60,6 +62,13 @@ def main():
     llm = build_llm()
     print(f"[LLM] Gemini-2.5-flash initialized.\n")
 
+    kb = KnowledgeBase()
+    for case in SEED_CASES:
+        kb.add_case(case)
+    print(f"[RAG] Knowledge base seeded ({kb.get_stats()} cases).\n")
+
+    init_evidence_csv()
+
     csv_files = find_csv_files()
     df = pd.read_csv(csv_files[0], dtype=str).fillna("")
 
@@ -78,7 +87,7 @@ def main():
         print(f"[{i+1}/{n}] Processing note_id={note_id} ...")
 
         try:
-            result = process_row(row_dict, llm)
+            result = process_row(row_dict, llm, kb=kb, run_id="test_run")
             results.append(result)
             print_result(i, result)
         except Exception as e:

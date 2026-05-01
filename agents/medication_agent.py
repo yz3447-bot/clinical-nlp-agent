@@ -7,6 +7,11 @@ Structured columns are unreliable in this dataset (all zeros) — free text is p
 import json
 import re
 
+from logger import get_logger
+from schemas import MedicationAgentOutput
+
+logger = get_logger(__name__)
+
 # Structured column names to check first (Phase 1 fast path)
 AD_MED_COLUMNS = [
     "donepezil", "denepezil",
@@ -87,22 +92,13 @@ def _parse_llm_json(content: str) -> dict | None:
     return None
 
 
-def run_medication_agent(row: dict, llm=None) -> dict:
+def run_medication_agent(row: dict, llm=None) -> MedicationAgentOutput:
     """
     Args:
         row: dict with medication flag columns and 'text' key (full clinical note)
         llm: LangChain LLM instance
     Returns:
-        {
-          "meds_found": bool,
-          "medications": list[str],
-          "status": "current" | "historical" | "refused" | "mentioned" | "none",
-          "source": "structured" | "text" | "none",
-          "confidence": "high" | "medium" | "low",
-          "reasoning": str,
-          "assessment": str,
-          "weight": 3
-        }
+        MedicationAgentOutput validated instance
     """
     # ── Phase 1: structured binary columns (fast path) ────────────────────────
     structured_meds = []
@@ -118,32 +114,30 @@ def run_medication_agent(row: dict, llm=None) -> dict:
             pass
 
     if structured_meds:
-        return {
-            "meds_found":       True,
-            "medications":      structured_meds,
-            "status":           "current",
-            "source":           "structured",
-            "confidence":       "high",
-            "confidence_score": _compute_confidence_score(True, "structured", "current"),
-            "reasoning":        f"Structured columns flag: {', '.join(structured_meds)}.",
-            "assessment":       f"Active prescription confirmed via structured data: {', '.join(structured_meds)}.",
-            "weight":           3,
-        }
+        return MedicationAgentOutput(
+            meds_found=True,
+            medications=structured_meds,
+            status="current",
+            source="structured",
+            confidence="high",
+            confidence_score=_compute_confidence_score(True, "structured", "current"),
+            reasoning=f"Structured columns flag: {', '.join(structured_meds)}.",
+            assessment=f"Active prescription confirmed via structured data: {', '.join(structured_meds)}.",
+        )
 
     # ── Phase 2: LLM full-text scan ───────────────────────────────────────────
     text = str(row.get("text", "") or "")
     if not text.strip() or llm is None:
-        return {
-            "meds_found":       False,
-            "medications":      [],
-            "status":           "none",
-            "source":           "none",
-            "confidence":       "low",
-            "confidence_score": 0.0,
-            "reasoning":        "No text available for LLM scan.",
-            "assessment":       "Cannot assess — no clinical text.",
-            "weight":           3,
-        }
+        return MedicationAgentOutput(
+            meds_found=False,
+            medications=[],
+            status="none",
+            source="none",
+            confidence="low",
+            confidence_score=0.0,
+            reasoning="No text available for LLM scan.",
+            assessment="Cannot assess — no clinical text.",
+        )
 
     try:
         response = llm.invoke(MED_TEXT_PROMPT.format(text=text))
@@ -151,30 +145,33 @@ def run_medication_agent(row: dict, llm=None) -> dict:
         parsed   = _parse_llm_json(content)
 
         if parsed:
-            found  = bool(parsed.get("meds_found", False))
-            status = parsed.get("status", "none")
-            return {
-                "meds_found":       found,
-                "medications":      parsed.get("medications", []),
-                "status":           status,
-                "source":           "text",
-                "confidence":       parsed.get("confidence", "low"),
-                "confidence_score": _compute_confidence_score(found, "text", status),
-                "reasoning":        str(parsed.get("reasoning", "")),
-                "assessment":       str(parsed.get("assessment", "")),
-                "weight":           3,
-            }
+            found      = bool(parsed.get("meds_found", False))
+            status_raw = str(parsed.get("status", "none")).lower().strip()
+            status     = (status_raw if status_raw in
+                          ("current", "historical", "refused", "mentioned", "none")
+                          else "none")
+            conf_raw   = str(parsed.get("confidence", "low")).lower().strip()
+            conf       = conf_raw if conf_raw in ("high", "medium", "low") else "low"
+            return MedicationAgentOutput(
+                meds_found=found,
+                medications=parsed.get("medications", []),
+                status=status,
+                source="text",
+                confidence=conf,
+                confidence_score=_compute_confidence_score(found, "text", status),
+                reasoning=str(parsed.get("reasoning", "")),
+                assessment=str(parsed.get("assessment", "")),
+            )
     except Exception as e:
-        pass
+        logger.warning(f"LLM call failed: {e}")
 
-    return {
-        "meds_found":       False,
-        "medications":      [],
-        "status":           "none",
-        "source":           "none",
-        "confidence":       "low",
-        "confidence_score": 0.0,
-        "reasoning":        "LLM scan failed.",
-        "assessment":       "LLM scan failed — defaulting negative.",
-        "weight":           3,
-    }
+    return MedicationAgentOutput(
+        meds_found=False,
+        medications=[],
+        status="none",
+        source="none",
+        confidence="low",
+        confidence_score=0.0,
+        reasoning="LLM scan failed.",
+        assessment="LLM scan failed — defaulting negative.",
+    )

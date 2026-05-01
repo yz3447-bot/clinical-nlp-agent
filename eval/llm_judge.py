@@ -9,7 +9,15 @@ Evaluates cases that have agent discrepancies along three dimensions:
 
 import json
 import re
+import sys
 import time
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).parent.parent))
+
+from logger import get_logger
+
+logger = get_logger(__name__)
 
 # ─── Judge prompt ─────────────────────────────────────────────────────────────
 
@@ -104,8 +112,8 @@ def judge_case(row: dict, llm) -> dict:
                 "judge_comment":           str(parsed.get("judge_comment", "")),
                 "discrepancy":             str(row.get("discrepancy", "")),
             }
-    except Exception:
-        pass
+    except Exception as e:
+        logger.warning("LLM judge call failed: %s", e)
 
     # Fallback: judge call failed
     return {

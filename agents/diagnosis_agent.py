@@ -1,11 +1,16 @@
 """
 Diagnosis Agent — Layer 3 (corroborative, weight +1).
 Step 1: Rule-based ICD code matching (no LLM, cheap).
-Step 2: LLM reads full note to determine current vs historical coding.
+Step 2: LLM reads full note to determine current vs historical.
 """
 
 import json
 import re
+
+from logger import get_logger
+from schemas import DiagnosisAgentOutput
+
+logger = get_logger(__name__)
 
 # ICD-9 AD/ADRD codes
 AD_ICD9 = {
@@ -98,21 +103,13 @@ def _parse_llm_json(content: str) -> dict | None:
     return None
 
 
-def run_diagnosis_agent(row: dict, llm=None) -> dict:
+def run_diagnosis_agent(row: dict, llm=None) -> DiagnosisAgentOutput:
     """
     Args:
         row: dict with 'all_icd_codes' (pipe-separated) and 'text' key
         llm: LangChain LLM instance (enables current vs historical analysis)
     Returns:
-        {
-          "dx_found": bool,
-          "matched_codes": list[str],
-          "is_current_diagnosis": bool,
-          "confidence": "high" | "medium" | "low",
-          "reasoning": str,
-          "assessment": str,
-          "weight": 1
-        }
+        DiagnosisAgentOutput validated instance
     """
     # ── Step 1: Rule-based ICD matching ──────────────────────────────────────
     raw = str(row.get("all_icd_codes", "") or "")
@@ -128,30 +125,28 @@ def run_diagnosis_agent(row: dict, llm=None) -> dict:
     dx_found = len(matched) > 0
 
     if not dx_found:
-        return {
-            "dx_found":             False,
-            "matched_codes":        [],
-            "is_current_diagnosis": False,
-            "confidence":           "low",
-            "confidence_score":     0.0,
-            "reasoning":            "No AD/ADRD ICD codes found in record.",
-            "assessment":           "No AD/ADRD ICD codes present.",
-            "weight":               1,
-        }
+        return DiagnosisAgentOutput(
+            dx_found=False,
+            matched_codes=[],
+            is_current_diagnosis=False,
+            confidence="low",
+            confidence_score=0.0,
+            reasoning="No AD/ADRD ICD codes found in record.",
+            assessment="No AD/ADRD ICD codes present.",
+        )
 
     # ── Step 2: LLM context analysis (current vs historical) ─────────────────
     text = str(row.get("text", "") or "")
     if not text.strip() or llm is None:
-        return {
-            "dx_found":             True,
-            "matched_codes":        matched,
-            "is_current_diagnosis": True,
-            "confidence":           "medium",
-            "confidence_score":     _compute_confidence_score(True, True, "medium"),
-            "reasoning":            "ICD codes matched; no LLM context check available.",
-            "assessment":           f"ICD codes matched ({', '.join(matched)}); assumed current.",
-            "weight":               1,
-        }
+        return DiagnosisAgentOutput(
+            dx_found=True,
+            matched_codes=matched,
+            is_current_diagnosis=True,
+            confidence="medium",
+            confidence_score=_compute_confidence_score(True, True, "medium"),
+            reasoning="ICD codes matched; no LLM context check available.",
+            assessment=f"ICD codes matched ({', '.join(matched)}); assumed current.",
+        )
 
     try:
         prompt = DX_CONTEXT_PROMPT.format(
@@ -165,28 +160,27 @@ def run_diagnosis_agent(row: dict, llm=None) -> dict:
 
         if parsed:
             is_current = bool(parsed.get("is_current_diagnosis", True))
-            conf       = parsed.get("confidence", "medium")
-            return {
-                "dx_found":             True,
-                "matched_codes":        matched,
-                "is_current_diagnosis": is_current,
-                "confidence":           conf,
-                "confidence_score":     _compute_confidence_score(True, is_current, conf),
-                "reasoning":            str(parsed.get("reasoning", "")),
-                "assessment":           str(parsed.get("assessment", "")),
-                "weight":               1,
-            }
+            conf_raw   = str(parsed.get("confidence", "medium")).lower().strip()
+            conf       = conf_raw if conf_raw in ("high", "medium", "low") else "medium"
+            return DiagnosisAgentOutput(
+                dx_found=True,
+                matched_codes=matched,
+                is_current_diagnosis=is_current,
+                confidence=conf,
+                confidence_score=_compute_confidence_score(True, is_current, conf),
+                reasoning=str(parsed.get("reasoning", "")),
+                assessment=str(parsed.get("assessment", "")),
+            )
     except Exception as e:
-        pass
+        logger.warning(f"LLM call failed: {e}")
 
     # Fallback: codes found but LLM failed
-    return {
-        "dx_found":             True,
-        "matched_codes":        matched,
-        "is_current_diagnosis": True,
-        "confidence":           "medium",
-        "confidence_score":     _compute_confidence_score(True, True, "medium"),
-        "reasoning":            "ICD codes matched; LLM context check failed.",
-        "assessment":           f"ICD codes matched ({', '.join(matched)}); LLM check failed.",
-        "weight":               1,
-    }
+    return DiagnosisAgentOutput(
+        dx_found=True,
+        matched_codes=matched,
+        is_current_diagnosis=True,
+        confidence="medium",
+        confidence_score=_compute_confidence_score(True, True, "medium"),
+        reasoning="ICD codes matched; LLM context check failed.",
+        assessment=f"ICD codes matched ({', '.join(matched)}); LLM check failed.",
+    )

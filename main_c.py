@@ -5,37 +5,36 @@ Architecture (three independent specialist agents + synthesizer):
   Layer 1  ClinTextAgent   (neurologist,    weight +3)  ─┐
   Layer 2  MedicationAgent (pharmacist,     weight +3)  ─┤─→ SynthesizerAgent → prediction + subtype
   Layer 3  DiagnosisAgent  (coding spec,    weight +1)  ─┘
-  Agents run in parallel via ThreadPoolExecutor.
+  Agents run in parallel via ThreadPoolExecutor (inside pipeline.py).
 """
 
-import os
 import csv
 import json
+import os
 import time
-import concurrent.futures
+import uuid
 from pathlib import Path
 
 import pandas as pd
 from langchain_google_genai import ChatGoogleGenerativeAI
 
-from agents.diagnosis_agent import run_diagnosis_agent
-from agents.medication_agent import run_medication_agent
-from agents.clintext_agent import run_clintext_agent
-from agents.synthesizer_agent import run_synthesizer_agent
+from logger import get_logger
+from pipeline import run_pipeline, EVIDENCE_COLUMNS
+from rag.knowledge_base import KnowledgeBase
+from rag.seed_data import SEED_CASES
+from schemas import PipelineResult
+
+logger = get_logger(__name__)
 
 # ─── Configuration ───────────────────────────────────────────────────────────
 DATA_DIR = Path(__file__).parent / "data"
 OUTPUT_DIR = Path(__file__).parent / "outputs"
-OUTPUT_CSV = OUTPUT_DIR / "predictions_c.csv"
+OUTPUT_CSV    = OUTPUT_DIR / "predictions_c.csv"
+EVIDENCE_CSV  = OUTPUT_DIR / "agent_evidence.csv"
 WAIT_BETWEEN_ROWS = 30  # seconds between records (rate limit buffer)
 
-OUTPUT_COLUMNS = [
-    "note_id", "subject_id", "ground_truth", "ground_truth_subtype",
-    "dx_found", "meds_found", "symptoms_found",
-    "final_prediction", "subtype", "confidence",
-    "contributing_agents", "causal_chain", "discrepancy",
-    "overruled_agents", "reason",
-]
+# Driven entirely by PipelineResult — no manual field list to maintain
+OUTPUT_COLUMNS = list(PipelineResult.model_fields.keys())
 
 # Ground truth column name fragments
 _GT_ADRD_FRAG    = "is AD/ADRD"
@@ -72,7 +71,7 @@ def load_processed_note_ids() -> set:
         reader = csv.DictReader(f)
         for row in reader:
             processed.add(str(row["note_id"]))
-    print(f"[Checkpoint] Resuming — {len(processed)} records already processed.")
+    logger.info("[Checkpoint] Resuming — %d records already processed.", len(processed))
     return processed
 
 
@@ -85,6 +84,42 @@ def init_output_csv():
             writer.writeheader()
 
 
+def init_evidence_csv():
+    """Create agent_evidence.csv with header if missing."""
+    OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
+    if not EVIDENCE_CSV.exists() or EVIDENCE_CSV.stat().st_size == 0:
+        with open(EVIDENCE_CSV, "w", newline="", encoding="utf-8") as f:
+            writer = csv.DictWriter(f, fieldnames=EVIDENCE_COLUMNS)
+            writer.writeheader()
+
+
+def append_evidence(record: dict):
+    """Append a single evidence row to agent_evidence.csv."""
+    with open(EVIDENCE_CSV, "a", newline="", encoding="utf-8") as f:
+        writer = csv.DictWriter(f, fieldnames=EVIDENCE_COLUMNS)
+        writer.writerow(record)
+
+
+def _serialise_for_csv(data: dict) -> dict:
+    """Convert model_dump() output to CSV-safe types.
+
+    - list  → JSON string  (so DictWriter writes '[\"a\",\"b\"]' not \"['a','b']\")
+    - None  → ""           (avoids 'None' string in CSV)
+    - bool  → int          (True/False → 1/0, backward-compatible with existing CSVs)
+    """
+    out = {}
+    for key, val in data.items():
+        if isinstance(val, list):
+            out[key] = json.dumps(val)
+        elif val is None:
+            out[key] = ""
+        elif isinstance(val, bool):        # must precede int check; bool ⊂ int
+            out[key] = int(val)
+        else:
+            out[key] = val
+    return out
+
+
 def append_result(result: dict):
     """Append a single result row to the output CSV."""
     with open(OUTPUT_CSV, "a", newline="", encoding="utf-8") as f:
@@ -92,9 +127,10 @@ def append_result(result: dict):
         writer.writerow(result)
 
 
-def process_row(row: dict, llm) -> dict:
+def process_row(row: dict, llm, kb=None, run_id: str = "") -> dict:
     """
-    Run all 3 specialist agents in parallel, then the Synthesizer serially.
+    Extract fields from a CSV row, run the pipeline, return a CSV-ready dict.
+    All agent execution and orchestration logic lives in pipeline.run_pipeline().
     """
     note_id    = str(row.get("note_id", ""))
     subject_id = str(row.get("subject_id", ""))
@@ -113,67 +149,31 @@ def process_row(row: dict, llm) -> dict:
     )
     ground_truth_subtype = str(gt_subtype_val).strip()
 
-    text = str(row.get("text", "") or "")
+    text      = str(row.get("text", "") or "")
+    icd_codes = str(row.get("all_icd_codes", "") or "")
 
-    print(f"[Processing] note_id={note_id} | subject_id={subject_id} "
-          f"| gt={ground_truth} | gt_subtype={ground_truth_subtype} "
-          f"| text_len={len(text)}")
+    logger.info(
+        "[Processing] note_id=%s | subject_id=%s | gt=%s | gt_subtype=%s | text_len=%d",
+        note_id, subject_id, ground_truth, ground_truth_subtype, len(text),
+    )
 
-    row_dict = dict(row)
-
-    # ── Parallel execution: Agents 1–3 ──────────────────────────────────────
-    with concurrent.futures.ThreadPoolExecutor(max_workers=3) as executor:
-        future_dx   = executor.submit(run_diagnosis_agent,  row_dict, llm)
-        future_med  = executor.submit(run_medication_agent, row_dict, llm)
-        future_clin = executor.submit(run_clintext_agent,   row_dict, llm)
-
-        dx_result   = future_dx.result()
-        med_result  = future_med.result()
-        clin_result = future_clin.result()
-
-    print(f"  [L3-DiagnosisAgent]  dx_found={dx_result['dx_found']} "
-          f"current={dx_result.get('is_current_diagnosis','?')} "
-          f"conf={dx_result['confidence']} codes={dx_result['matched_codes']}")
-    print(f"  [L2-MedicationAgent] meds_found={med_result['meds_found']} "
-          f"status={med_result.get('status','?')} "
-          f"meds={med_result['medications']} source={med_result.get('source','?')}")
-    ev_count = len(clin_result.get("evidence_list", []))
-    print(f"  [L1-ClinTextAgent]   symptoms_found={clin_result['symptoms_found']} "
-          f"conf={clin_result['confidence']} evidence_count={ev_count}")
-
-    # ── Serial: Synthesizer ───────────────────────────────────────────────────
-    synth_result = run_synthesizer_agent(dx_result, med_result, clin_result, llm, text=text)
-
-    print(f"  [Synthesizer]  prediction={synth_result['final_prediction']} "
-          f"subtype={synth_result['subtype']} "
-          f"confidence={synth_result['confidence']}")
-    print(f"  [Causal Chain] {synth_result['causal_chain'][:200]}...")
-    if synth_result.get("discrepancy"):
-        print(f"  [Discrepancy]  {synth_result['discrepancy']}")
-    if synth_result.get("overruled_agents"):
-        print(f"  [Overruled]    {synth_result['overruled_agents']}")
-
-    return {
-        "note_id":              note_id,
-        "subject_id":           subject_id,
-        "ground_truth":         ground_truth,
-        "ground_truth_subtype": ground_truth_subtype,
-        "dx_found":             int(dx_result["dx_found"]),
-        "meds_found":           int(med_result["meds_found"]),
-        "symptoms_found":       int(clin_result["symptoms_found"]),
-        "final_prediction":     synth_result["final_prediction"],
-        "subtype":              synth_result["subtype"],
-        "confidence":           synth_result["confidence"],
-        "contributing_agents":  json.dumps(synth_result["contributing_agents"]),
-        "causal_chain":         synth_result["causal_chain"],
-        "discrepancy":          synth_result.get("discrepancy") or "",
-        "overruled_agents":     json.dumps(synth_result.get("overruled_agents", [])),
-        "reason":               synth_result["reason"],
-    }
+    pipeline_result, _, evidence_record = run_pipeline(
+        text=text,
+        icd_codes=icd_codes,
+        llm=llm,
+        kb=kb,
+        run_id=run_id,
+        note_id=note_id,
+        subject_id=subject_id,
+        ground_truth=ground_truth,
+        ground_truth_subtype=ground_truth_subtype,
+    )
+    append_evidence(evidence_record)
+    return _serialise_for_csv(pipeline_result.model_dump())
 
 
 def compute_metrics(output_csv: Path):
-    """Print AD/ADRD diagnosis metrics (accuracy, sensitivity, PPV)."""
+    """Log AD/ADRD diagnosis metrics (accuracy, sensitivity, PPV)."""
     df = pd.read_csv(output_csv, dtype=str)
 
     df_eval = df[df["ground_truth"].astype(str).isin(["0", "1"])].copy()
@@ -182,7 +182,7 @@ def compute_metrics(output_csv: Path):
 
     total = len(df_eval)
     if total == 0:
-        print("No valid rows to compute metrics.")
+        logger.warning("No valid rows to compute metrics.")
         return
 
     correct     = (df_eval["ground_truth"] == df_eval["final_prediction"]).sum()
@@ -193,43 +193,60 @@ def compute_metrics(output_csv: Path):
     sensitivity = tp / (tp + fn) if (tp + fn) > 0 else float("nan")
     ppv         = tp / (tp + fp) if (tp + fp) > 0 else float("nan")
 
-    print("\n" + "=" * 55)
-    print("  AD/ADRD DIAGNOSIS METRICS")
-    print("=" * 55)
-    print(f"  Total evaluated  : {total}")
-    print(f"  Accuracy         : {accuracy:.4f}  ({correct}/{total})")
-    print(f"  Sensitivity      : {sensitivity:.4f}")
-    print(f"  PPV (Precision)  : {ppv:.4f}")
-    print("=" * 55 + "\n")
+    logger.info(
+        "\n" + "=" * 55 + "\n"
+        "  AD/ADRD DIAGNOSIS METRICS\n"
+        + "=" * 55 + "\n"
+        + f"  Total evaluated  : {total}\n"
+        + f"  Accuracy         : {accuracy:.4f}  ({correct}/{total})\n"
+        + f"  Sensitivity      : {sensitivity:.4f}\n"
+        + f"  PPV (Precision)  : {ppv:.4f}\n"
+        + "=" * 55
+    )
 
 
 def main():
-    print("=" * 60)
-    print("  AD/ADRD Horizontal Multi-Agent System  (main_c.py)")
-    print("=" * 60)
+    logger.info("=" * 60)
+    logger.info("  AD/ADRD Horizontal Multi-Agent System  (main_c.py)")
+    logger.info("=" * 60)
 
     llm = build_llm()
-    print("[LLM] Gemini-2.5-flash initialized.")
+    logger.info("[LLM] Gemini-2.5-flash initialized.")
+
+    _kb = KnowledgeBase()
+    for case in SEED_CASES:
+        _kb.add_case(
+            note_id=case["note_id"],
+            text=case["text"],
+            label=case["label"],
+            subtype=case["subtype"],
+        )
+    logger.info("[RAG] KnowledgeBase initialized with %d seed cases.", _kb.get_stats())
 
     csv_files = find_csv_files()
-    print(f"[Data] Found {len(csv_files)} CSV file(s): {[f.name for f in csv_files]}")
+    logger.info("[Data] Found %d CSV file(s): %s", len(csv_files), [f.name for f in csv_files])
 
     init_output_csv()
+    init_evidence_csv()
     processed_ids = load_processed_note_ids()
 
-    total_processed    = 0
+    # One run_id shared across all records in this invocation
+    run_id = str(uuid.uuid4())
+    logger.info("[Run] run_id=%s", run_id)
+
+    total_processed     = 0
     total_skipped_label = 0
     total_skipped_done  = 0
 
     for csv_path in csv_files:
-        print(f"\n[Data] Loading: {csv_path.name}")
+        logger.info("[Data] Loading: %s", csv_path.name)
         df = pd.read_csv(csv_path, dtype=str)
         df = df.fillna("")
 
         gt_col = next((c for c in df.columns if _GT_ADRD_FRAG in c), None)
         if gt_col is None:
             gt_col = next((c for c in df.columns if c.lower() in ("label", "ground_truth")), None)
-        print(f"[Data] Ground truth column: '{gt_col}'")
+        logger.info("[Data] Ground truth column: '%s'", gt_col)
 
         for idx, row in df.iterrows():
             row_dict = row.to_dict()
@@ -248,23 +265,26 @@ def main():
                 continue
 
             try:
-                result = process_row(row_dict, llm)
+                result = process_row(row_dict, llm, kb=_kb, run_id=run_id)
                 append_result(result)
                 processed_ids.add(note_id)
                 total_processed += 1
 
-                print(f"  -> Saved result for note_id={note_id}. "
-                      f"Waiting {WAIT_BETWEEN_ROWS}s...")
+                logger.info(
+                    "  -> Saved result for note_id=%s. Waiting %ds...",
+                    note_id, WAIT_BETWEEN_ROWS,
+                )
                 time.sleep(WAIT_BETWEEN_ROWS)
 
             except Exception as e:
-                print(f"[ERROR] note_id={note_id}: {e}")
+                logger.error("[ERROR] note_id=%s: %s", note_id, e)
                 continue
 
-    print(f"\n[Done] Processed: {total_processed} | "
-          f"Skipped (label=-1): {total_skipped_label} | "
-          f"Skipped (already done): {total_skipped_done}")
-    print(f"[Output] Results saved to: {OUTPUT_CSV}")
+    logger.info(
+        "[Done] Processed: %d | Skipped (label=-1): %d | Skipped (already done): %d",
+        total_processed, total_skipped_label, total_skipped_done,
+    )
+    logger.info("[Output] Results saved to: %s", OUTPUT_CSV)
 
     compute_metrics(OUTPUT_CSV)
 

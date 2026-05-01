@@ -9,6 +9,16 @@ Subtypes: ad | vd | ftd | nsd | na
 import json
 import re
 
+from logger import get_logger
+from schemas import (
+    DiagnosisAgentOutput,
+    MedicationAgentOutput,
+    ClinTextAgentOutput,
+    SynthesizerOutput,
+)
+
+logger = get_logger(__name__)
+
 SYNTHESIZER_PROMPT = """You are a senior attending physician and dementia specialist making
 the final diagnosis for a patient.
 
@@ -101,76 +111,66 @@ def _parse_llm_json(content: str) -> dict | None:
     return None
 
 
-def _format_clin_report(r: dict) -> str:
-    found      = r.get("symptoms_found", False)
-    conf       = r.get("confidence", "low")
-    cs         = r.get("confidence_score", 0.0)
-    ev         = r.get("evidence_list", [])
-    ev_str     = "\n  - " + "\n  - ".join(ev[:5]) if ev else "  (none)"
-    reasoning  = r.get("reasoning", "")
-    assessment = r.get("assessment", "")
+def _format_clin_report(r: ClinTextAgentOutput) -> str:
+    ev_str = "\n  - " + "\n  - ".join(r.evidence_list[:5]) if r.evidence_list else "  (none)"
     return (
-        f"symptoms_found: {found} | confidence: {conf} | confidence_score: {cs}\n"
+        f"symptoms_found: {r.symptoms_found} | confidence: {r.confidence} | confidence_score: {r.confidence_score}\n"
         f"Evidence quotes:{ev_str}\n"
-        f"Reasoning: {reasoning}\n"
-        f"Assessment: {assessment}"
+        f"Reasoning: {r.reasoning}\n"
+        f"Assessment: {r.assessment}"
     )
 
 
-def _format_med_report(r: dict) -> str:
-    found      = r.get("meds_found", False)
-    meds       = ", ".join(r.get("medications", [])) or "(none)"
-    status     = r.get("status", "none")
-    source     = r.get("source", "none")
-    conf       = r.get("confidence", "low")
-    cs         = r.get("confidence_score", 0.0)
-    reasoning  = r.get("reasoning", "")
-    assessment = r.get("assessment", "")
+def _format_med_report(r: MedicationAgentOutput) -> str:
+    meds = ", ".join(r.medications) or "(none)"
     return (
-        f"meds_found: {found} | status: {status} | source: {source} | confidence: {conf} | confidence_score: {cs}\n"
+        f"meds_found: {r.meds_found} | status: {r.status} | source: {r.source} | confidence: {r.confidence} | confidence_score: {r.confidence_score}\n"
         f"Medications: {meds}\n"
-        f"Reasoning: {reasoning}\n"
-        f"Assessment: {assessment}"
+        f"Reasoning: {r.reasoning}\n"
+        f"Assessment: {r.assessment}"
     )
 
 
-def _format_dx_report(r: dict) -> str:
-    found      = r.get("dx_found", False)
-    codes      = ", ".join(r.get("matched_codes", [])) or "(none)"
-    current    = r.get("is_current_diagnosis", False)
-    conf       = r.get("confidence", "low")
-    cs         = r.get("confidence_score", 0.0)
-    reasoning  = r.get("reasoning", "")
-    assessment = r.get("assessment", "")
+def _format_dx_report(r: DiagnosisAgentOutput) -> str:
+    codes = ", ".join(r.matched_codes) or "(none)"
     return (
-        f"dx_found: {found} | is_current_diagnosis: {current} | confidence: {conf} | confidence_score: {cs}\n"
+        f"dx_found: {r.dx_found} | is_current_diagnosis: {r.is_current_diagnosis} | confidence: {r.confidence} | confidence_score: {r.confidence_score}\n"
         f"Matched codes: {codes}\n"
-        f"Reasoning: {reasoning}\n"
-        f"Assessment: {assessment}"
+        f"Reasoning: {r.reasoning}\n"
+        f"Assessment: {r.assessment}"
     )
 
 
-def _compute_score(clin_result: dict, med_result: dict, dx_result: dict) -> tuple[int, list[str]]:
+def _compute_score(
+    clin_result: ClinTextAgentOutput,
+    med_result:  MedicationAgentOutput,
+    dx_result:   DiagnosisAgentOutput,
+) -> tuple[int, list[str]]:
     score = 0
     contributing = []
-    if clin_result.get("symptoms_found"):
+    if clin_result.symptoms_found:
         score += 3
         contributing.append("ClinTextAgent")
-    if med_result.get("meds_found"):
+    if med_result.meds_found:
         score += 3
         contributing.append("MedicationAgent")
-    if dx_result.get("dx_found"):
+    if dx_result.dx_found:
         score += 1
         contributing.append("DiagnosisAgent")
     return score, contributing
 
 
-def _fallback_result(score: int, contributing: list, clin_result: dict,
-                     med_result: dict, dx_result: dict) -> dict:
-    """Rule-based fallback if LLM synthesis fails."""
-    med_found  = med_result.get("meds_found", False)
-    clin_found = clin_result.get("symptoms_found", False)
-    dx_found   = dx_result.get("dx_found", False)
+def _fallback_result(
+    score:        int,
+    contributing: list[str],
+    clin_result:  ClinTextAgentOutput,
+    med_result:   MedicationAgentOutput,
+    dx_result:    DiagnosisAgentOutput,
+) -> dict:
+    """Rule-based fallback if LLM synthesis fails. Returns a partial dict (no synthesis_mode/scores)."""
+    med_found  = med_result.meds_found
+    clin_found = clin_result.symptoms_found
+    dx_found   = dx_result.dx_found
 
     if med_found:
         pred, conf = 1, "high"
@@ -202,23 +202,23 @@ def _fallback_result(score: int, contributing: list, clin_result: dict,
 
 
 def _apply_confidence_correction(
-    result: dict,
-    clin_result: dict,
-    med_result: dict,
-    dx_result: dict,
+    result:      dict,
+    clin_result: ClinTextAgentOutput,
+    med_result:  MedicationAgentOutput,
+    dx_result:   DiagnosisAgentOutput,
 ) -> dict:
     """Post-processing rules that prevent the Synthesizer from being over-confident."""
-    clin_score = clin_result.get("confidence_score", 0.0)
-    med_score  = med_result.get("confidence_score", 0.0)
-    dx_score   = dx_result.get("confidence_score", 0.0)
+    clin_score = clin_result.confidence_score
+    med_score  = med_result.confidence_score
+    dx_score   = dx_result.confidence_score
 
-    current_confidence  = result.get("confidence", "low")
-    has_discrepancy     = bool(result.get("discrepancy"))
-    has_overruled       = bool(result.get("overruled_agents"))
-    low_evidence_count  = sum(1 for s in (clin_score, med_score, dx_score) if s < 0.3)
-    sparse_early_case   = (
+    current_confidence = result.get("confidence", "low")
+    has_discrepancy    = bool(result.get("discrepancy"))
+    has_overruled      = bool(result.get("overruled_agents"))
+    low_evidence_count = sum(1 for s in (clin_score, med_score, dx_score) if s < 0.3)
+    sparse_early_case  = (
         med_score == 0.0 and
-        len(clin_result.get("evidence_list", [])) < 2
+        len(clin_result.evidence_list) < 2
     )
 
     # Rule 1: discrepancy + overruled agents → cap at medium
@@ -246,12 +246,12 @@ def _apply_confidence_correction(
 
 
 def run_synthesizer_agent(
-    dx_result:   dict,
-    med_result:  dict,
-    clin_result: dict,
+    dx_result:   DiagnosisAgentOutput,
+    med_result:  MedicationAgentOutput,
+    clin_result: ClinTextAgentOutput,
     llm,
     text:        str = "",
-) -> dict:
+) -> SynthesizerOutput:
     """
     Args:
         dx_result:   output from diagnosis_agent   (weight 1)
@@ -260,76 +260,68 @@ def run_synthesizer_agent(
         llm:         LangChain LLM instance
         text:        full clinical note text
     Returns:
-        {
-          "final_prediction": int,
-          "subtype": str,
-          "confidence": str,
-          "synthesis_mode": str,        # "consensus_positive" | "consensus_negative" | "llm_arbitration"
-          "total_score": int,
-          "contributing_agents": list[str],
-          "causal_chain": str,
-          "discrepancy": str | None,
-          "overruled_agents": list[str],
-          "reason": str,
-          "confidence_score_clin": float,
-          "confidence_score_med": float,
-          "confidence_score_dx": float,
-          "confidence_correction": str | None
-        }
+        SynthesizerOutput validated instance
     """
     score, contributing = _compute_score(clin_result, med_result, dx_result)
 
     # Extract per-agent rule-based confidence scores
-    cs_clin = float(clin_result.get("confidence_score", 0.0))
-    cs_med  = float(med_result.get("confidence_score", 0.0))
-    cs_dx   = float(dx_result.get("confidence_score", 0.0))
+    cs_clin = clin_result.confidence_score
+    cs_med  = med_result.confidence_score
+    cs_dx   = dx_result.confidence_score
 
     # ── Consensus-based early exit ────────────────────────────────────────────
-    med_pos  = bool(med_result.get("meds_found", False))
-    clin_pos = bool(clin_result.get("symptoms_found", False))
-    dx_pos   = bool(dx_result.get("dx_found", False))
+    med_pos  = med_result.meds_found
+    clin_pos = clin_result.symptoms_found
+    dx_pos   = dx_result.dx_found
 
     if med_pos and clin_pos:
-        return {
-            "final_prediction":      1,
-            "subtype":               "nsd",
-            "confidence":            "high",
-            "synthesis_mode":        "consensus_positive",
-            "total_score":           score,
-            "contributing_agents":   contributing,
-            "causal_chain":          (
+        consensus_result = SynthesizerOutput(
+            final_prediction=1,
+            subtype="nsd",
+            confidence="high",
+            synthesis_mode="consensus_positive",
+            total_score=score,
+            contributing_agents=contributing,
+            causal_chain=(
                 "All specialist agents reached consensus: MedicationAgent and ClinTextAgent "
                 "both positive. LLM arbitration skipped."
             ),
-            "discrepancy":           None,
-            "overruled_agents":      [],
-            "reason":                "Consensus positive — medication and clinical evidence both confirmed.",
-            "confidence_score_clin": cs_clin,
-            "confidence_score_med":  cs_med,
-            "confidence_score_dx":   cs_dx,
-            "confidence_correction": None,
-        }
+            discrepancy=None,
+            overruled_agents=[],
+            reason="Consensus positive — medication and clinical evidence both confirmed.",
+            confidence_score_clin=cs_clin,
+            confidence_score_med=cs_med,
+            confidence_score_dx=cs_dx,
+            confidence_correction=None,
+        )
+        corrected = _apply_confidence_correction(
+            consensus_result.model_dump(),
+            clin_result,
+            med_result,
+            dx_result,
+        )
+        return SynthesizerOutput(**corrected)
 
     if not med_pos and not clin_pos and not dx_pos:
-        return {
-            "final_prediction":      0,
-            "subtype":               "na",
-            "confidence":            "high",
-            "synthesis_mode":        "consensus_negative",
-            "total_score":           score,
-            "contributing_agents":   [],
-            "causal_chain":          (
+        return SynthesizerOutput(
+            final_prediction=0,
+            subtype="na",
+            confidence="high",
+            synthesis_mode="consensus_negative",
+            total_score=score,
+            contributing_agents=[],
+            causal_chain=(
                 "All specialist agents reached consensus: no AD/ADRD evidence found. "
                 "LLM arbitration skipped."
             ),
-            "discrepancy":           None,
-            "overruled_agents":      [],
-            "reason":                "Consensus negative — no medication, symptom, or ICD evidence found.",
-            "confidence_score_clin": cs_clin,
-            "confidence_score_med":  cs_med,
-            "confidence_score_dx":   cs_dx,
-            "confidence_correction": None,
-        }
+            discrepancy=None,
+            overruled_agents=[],
+            reason="Consensus negative — no medication, symptom, or ICD evidence found.",
+            confidence_score_clin=cs_clin,
+            confidence_score_med=cs_med,
+            confidence_score_dx=cs_dx,
+            confidence_correction=None,
+        )
 
     # ── LLM arbitration (mixed signals) ──────────────────────────────────────
 
@@ -346,17 +338,20 @@ def run_synthesizer_agent(
         parsed   = _parse_llm_json(content)
 
         if parsed:
-            pred    = int(parsed.get("final_prediction", 0))
-            subtype = str(parsed.get("subtype", "na")).lower().strip()
-            if subtype not in ("ad", "vd", "ftd", "nsd", "na"):
-                subtype = "nsd" if pred == 1 else "na"
+            pred       = int(parsed.get("final_prediction", 0))
+            subtype_raw = str(parsed.get("subtype", "na")).lower().strip()
+            if subtype_raw not in ("ad", "vd", "ftd", "nsd", "na"):
+                subtype_raw = "nsd" if pred == 1 else "na"
             if pred == 0:
-                subtype = "na"
+                subtype_raw = "na"
+
+            conf_raw = str(parsed.get("confidence", "low")).lower().strip()
+            conf     = conf_raw if conf_raw in ("high", "medium", "low") else "low"
 
             result = {
                 "final_prediction":      pred,
-                "subtype":               subtype,
-                "confidence":            str(parsed.get("confidence", "low")),
+                "subtype":               subtype_raw,
+                "confidence":            conf,
                 "synthesis_mode":        "llm_arbitration",
                 "total_score":           score,
                 "contributing_agents":   parsed.get("contributing_agents", contributing),
@@ -371,16 +366,18 @@ def run_synthesizer_agent(
             }
             # Post-processing: prevent over-confident LLM outputs
             result = _apply_confidence_correction(result, clin_result, med_result, dx_result)
-            return result
-    except Exception:
-        pass
+            return SynthesizerOutput(**result)
 
-    result = _fallback_result(score, contributing, clin_result, med_result, dx_result)
-    result.update({
-        "synthesis_mode":        "llm_arbitration",
-        "confidence_score_clin": cs_clin,
-        "confidence_score_med":  cs_med,
-        "confidence_score_dx":   cs_dx,
-        "confidence_correction": None,
-    })
-    return result
+    except Exception:
+        logger.warning("Synthesizer LLM call failed, using fallback")
+
+    # ── Deterministic fallback (LLM failed) ──────────────────────────────────
+    fallback = _fallback_result(score, contributing, clin_result, med_result, dx_result)
+    return SynthesizerOutput(
+        **fallback,
+        synthesis_mode="llm_arbitration",
+        confidence_score_clin=cs_clin,
+        confidence_score_med=cs_med,
+        confidence_score_dx=cs_dx,
+        confidence_correction=None,
+    )

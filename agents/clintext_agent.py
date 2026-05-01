@@ -7,6 +7,11 @@ Returns exact quotes, explicit reasoning, and exclusion list.
 import json
 import re
 
+from logger import get_logger
+from schemas import ClinTextAgentOutput
+
+logger = get_logger(__name__)
+
 CLINTEXT_PROMPT = """You are an experienced clinical neurologist specializing in dementia diagnosis.
 
 Your task is to analyze the complete clinical note and identify evidence
@@ -108,47 +113,38 @@ def _format_rag_context(cases: list[dict]) -> str:
     return "\n".join(lines)
 
 
-def run_clintext_agent(row: dict, llm, retriever=None) -> dict:
+def run_clintext_agent(row: dict, llm, kb=None) -> ClinTextAgentOutput:
     """
     Args:
-        row:       dict with 'text' key (full clinical note)
-        llm:       LangChain LLM instance
-        retriever: optional KnowledgeBase instance; if provided, retrieves 3
-                   similar cases and prepends them to the prompt as context
+        row: dict with 'text' key (full clinical note)
+        llm: LangChain LLM instance
+        kb:  optional KnowledgeBase instance; if provided, retrieves 3
+             similar cases and prepends them to the prompt as context
     Returns:
-        {
-          "symptoms_found": bool,
-          "evidence_list": list[str],
-          "reasoning": str,
-          "assessment": str,
-          "confidence": "high" | "medium" | "low",
-          "confidence_score": float,   # rule-based 0–1 score
-          "weight": 3
-        }
+        ClinTextAgentOutput validated instance
     """
     text = str(row.get("text", "") or "")
 
     if not text.strip():
-        return {
-            "symptoms_found":   False,
-            "evidence_list":    [],
-            "reasoning":        "No clinical text provided.",
-            "assessment":       "No clinical text available.",
-            "confidence":       "low",
-            "confidence_score": 0.0,
-            "weight":           3,
-        }
+        return ClinTextAgentOutput(
+            symptoms_found=False,
+            evidence_list=[],
+            reasoning="No clinical text provided.",
+            assessment="No clinical text available.",
+            confidence="low",
+            confidence_score=0.0,
+        )
 
     # ── Optionally prepend RAG context ────────────────────────────────────────
     prompt = CLINTEXT_PROMPT.format(text=text)
-    if retriever is not None:
+    if kb is not None:
         try:
-            similar_cases = retriever.retrieve_similar(text, n_results=3)
+            similar_cases = kb.retrieve_similar(text, n_results=3)
             if similar_cases:
                 rag_block = _format_rag_context(similar_cases)
                 prompt = rag_block + "\n\n" + prompt
-        except Exception:
-            pass  # RAG failure must never block the main agent
+        except Exception as e:
+            logger.warning(f"RAG retrieval failed: {e}")
 
     try:
         response = llm.invoke(prompt)
@@ -159,7 +155,8 @@ def run_clintext_agent(row: dict, llm, retriever=None) -> dict:
             raise ValueError("Unparseable LLM response")
 
         found      = bool(parsed.get("symptoms_found", False))
-        conf       = parsed.get("confidence", "low")
+        conf_raw   = str(parsed.get("confidence", "low")).lower().strip()
+        conf       = conf_raw if conf_raw in ("high", "medium", "low") else "low"
         evidence   = parsed.get("evidence_list", [])
         reasoning  = str(parsed.get("reasoning", ""))
         assessment = str(parsed.get("assessment", ""))
@@ -167,23 +164,22 @@ def run_clintext_agent(row: dict, llm, retriever=None) -> dict:
         if found and not evidence:
             conf = "low"
 
-        return {
-            "symptoms_found":   found,
-            "evidence_list":    evidence,
-            "reasoning":        reasoning,
-            "assessment":       assessment,
-            "confidence":       conf,
-            "confidence_score": _compute_confidence_score(found, evidence),
-            "weight":           3,
-        }
+        return ClinTextAgentOutput(
+            symptoms_found=found,
+            evidence_list=evidence,
+            reasoning=reasoning,
+            assessment=assessment,
+            confidence=conf,
+            confidence_score=_compute_confidence_score(found, evidence),
+        )
 
     except Exception as e:
-        return {
-            "symptoms_found":   False,
-            "evidence_list":    [],
-            "reasoning":        f"Agent error: {e}",
-            "assessment":       "Agent error — defaulting negative.",
-            "confidence":       "low",
-            "confidence_score": 0.0,
-            "weight":           3,
-        }
+        logger.warning(f"ClinTextAgent LLM call failed: {e}")
+        return ClinTextAgentOutput(
+            symptoms_found=False,
+            evidence_list=[],
+            reasoning=f"Agent error: {e}",
+            assessment="Agent error — defaulting negative.",
+            confidence="low",
+            confidence_score=0.0,
+        )

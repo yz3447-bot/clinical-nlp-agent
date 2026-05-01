@@ -28,6 +28,9 @@ import pandas as pd
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from eval.report_generator import generate_report
+from logger import get_logger
+
+logger = get_logger(__name__)
 
 
 # ─── Data loading ─────────────────────────────────────────────────────────────
@@ -59,7 +62,7 @@ def load_predictions(path: Path) -> pd.DataFrame:
     # Keep only rows with definitive labels (exclude uncertain -1)
     df = df[df["ground_truth"].isin(["0", "1"])].copy()
     if df.empty:
-        print("[Eval] No labeled rows found (ground_truth must be 0 or 1).")
+        logger.warning("No labeled rows found (ground_truth must be 0 or 1).")
         sys.exit(0)
 
     df["ground_truth"]     = df["ground_truth"].astype(int)
@@ -130,30 +133,30 @@ def build_error_buckets(df: pd.DataFrame) -> dict:
 def _print_summary(metrics: dict, buckets: dict) -> None:
     m = metrics
     sep = "=" * 58
-    print(f"\n{sep}")
-    print("  AD/ADRD EVAL RESULTS")
-    print(sep)
-    print(f"  Total labeled      : {m['total']}")
-    print(f"  Accuracy           : {m['accuracy']:.4f}  ({m['correct']}/{m['total']})")
-    print(f"  Sensitivity        : {m['sensitivity']:.4f}")
-    print(f"  PPV (Precision)    : {m['ppv']:.4f}")
-    print(f"  Specificity        : {m['specificity']:.4f}")
-    print(f"  F1                 : {m['f1']:.4f}")
-    print(sep)
-    print("  Confusion Matrix:")
-    print(f"    TP={m['tp']}  FN={m['fn']}")
-    print(f"    FP={m['fp']}  TN={m['tn']}")
-    print(sep)
-    print("  Error Buckets:")
+    logger.info(sep)
+    logger.info("  AD/ADRD EVAL RESULTS")
+    logger.info(sep)
+    logger.info("  Total labeled      : %d", m["total"])
+    logger.info("  Accuracy           : %.4f  (%d/%d)", m["accuracy"], m["correct"], m["total"])
+    logger.info("  Sensitivity        : %.4f", m["sensitivity"])
+    logger.info("  PPV (Precision)    : %.4f", m["ppv"])
+    logger.info("  Specificity        : %.4f", m["specificity"])
+    logger.info("  F1                 : %.4f", m["f1"])
+    logger.info(sep)
+    logger.info("  Confusion Matrix:")
+    logger.info("    TP=%d  FN=%d", m["tp"], m["fn"])
+    logger.info("    FP=%d  TN=%d", m["fp"], m["tn"])
+    logger.info(sep)
+    logger.info("  Error Buckets:")
     total_err = len(buckets["false_positives"]) + len(buckets["false_negatives"])
-    print(f"    Total errors         : {total_err}")
-    print(f"    False Positives      : {len(buckets['false_positives'])}")
-    print(f"    False Negatives      : {len(buckets['false_negatives'])}")
-    print(f"    Contradictory errors : {len(buckets['contradictory_errors'])}")
-    print(f"    Low-confidence errs  : {len(buckets['low_confidence_errors'])}")
-    print(f"    Consensus path errs  : {len(buckets['consensus_errors'])}")
-    print(f"    All w/ discrepancy   : {len(buckets['all_contradictory'])}")
-    print(sep + "\n")
+    logger.info("    Total errors         : %d", total_err)
+    logger.info("    False Positives      : %d", len(buckets["false_positives"]))
+    logger.info("    False Negatives      : %d", len(buckets["false_negatives"]))
+    logger.info("    Contradictory errors : %d", len(buckets["contradictory_errors"]))
+    logger.info("    Low-confidence errs  : %d", len(buckets["low_confidence_errors"]))
+    logger.info("    Consensus path errs  : %d", len(buckets["consensus_errors"]))
+    logger.info("    All w/ discrepancy   : %d", len(buckets["all_contradictory"]))
+    logger.info(sep)
 
 
 # ─── Main ─────────────────────────────────────────────────────────────────────
@@ -182,11 +185,11 @@ def main() -> None:
 
     pred_path = Path(args.predictions)
     if not pred_path.exists():
-        print(f"[Eval] Predictions file not found: {pred_path}. Nothing to evaluate.")
+        logger.warning("Predictions file not found: %s. Nothing to evaluate.", pred_path)
         sys.exit(0)
 
     # ── Load & compute ────────────────────────────────────────────────────────
-    print(f"[Eval] Loading predictions: {pred_path}")
+    logger.info("Loading predictions: %s", pred_path)
     df      = load_predictions(pred_path)
     metrics = compute_metrics(df)
     buckets = build_error_buckets(df)
@@ -199,13 +202,13 @@ def main() -> None:
     if args.run_llm_judge:
         api_key = os.environ.get("GEMINI_API_KEY")
         if not api_key:
-            print("[LLM Judge] GEMINI_API_KEY not set — skipping judge.\n")
+            logger.warning("GEMINI_API_KEY not set — skipping LLM judge.")
         elif not buckets["all_contradictory"]:
-            print("[LLM Judge] No contradictory cases found — nothing to judge.\n")
+            logger.info("No contradictory cases found — nothing to judge.")
         else:
-            print(
-                f"[LLM Judge] Scoring {len(buckets['all_contradictory'])} "
-                f"contradictory cases..."
+            logger.info(
+                "Scoring %d contradictory cases with LLM judge...",
+                len(buckets["all_contradictory"]),
             )
             from main_c import build_llm
             from eval.llm_judge import run_llm_judge
@@ -214,7 +217,7 @@ def main() -> None:
             judge_results = run_llm_judge(buckets["all_contradictory"], llm)
 
             avg = sum(r["overall_score"] for r in judge_results) / len(judge_results)
-            print(f"[LLM Judge] Average reasoning quality score: {avg:.3f}\n")
+            logger.info("LLM judge average reasoning quality score: %.3f", avg)
 
     # ── Generate HTML report ──────────────────────────────────────────────────
     report_path = generate_report(
@@ -224,18 +227,18 @@ def main() -> None:
         df=df,
         output_dir=Path(args.output),
     )
-    print(f"[Eval] Report saved: {report_path}")
+    logger.info("Report saved: %s", report_path)
 
     # ── CI gate: sensitivity threshold ───────────────────────────────────────
     threshold = 0.90
     if metrics["sensitivity"] < threshold:
-        print(
-            f"\n[FAIL] Sensitivity {metrics['sensitivity']:.4f} "
-            f"is below threshold {threshold:.2f}"
+        logger.error(
+            "[FAIL] Sensitivity %.4f is below threshold %.2f",
+            metrics["sensitivity"], threshold,
         )
         sys.exit(1)
 
-    print(f"[PASS] Sensitivity {metrics['sensitivity']:.4f} >= {threshold:.2f} threshold.\n")
+    logger.info("[PASS] Sensitivity %.4f >= %.2f threshold.", metrics["sensitivity"], threshold)
 
 
 if __name__ == "__main__":

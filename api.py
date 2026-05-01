@@ -10,7 +10,6 @@ import json
 import os
 import time
 import uuid
-import concurrent.futures
 from contextlib import asynccontextmanager
 from datetime import datetime, timezone
 from pathlib import Path
@@ -21,10 +20,7 @@ from typing import Optional
 
 from langchain_google_genai import ChatGoogleGenerativeAI
 
-from agents.diagnosis_agent import run_diagnosis_agent
-from agents.medication_agent import run_medication_agent
-from agents.clintext_agent import run_clintext_agent
-from agents.synthesizer_agent import run_synthesizer_agent
+from pipeline import run_pipeline
 from rag.knowledge_base import KnowledgeBase
 from rag.seed_data import SEED_CASES
 
@@ -62,9 +58,6 @@ class ClassifyRequest(BaseModel):
     )
 
 
-_LLM_COST_PER_CALL_USD = 0.002
-
-
 class AgentFindings(BaseModel):
     """Raw per-agent findings returned alongside the synthesizer result."""
     # ClinTextAgent
@@ -84,6 +77,7 @@ class AgentFindings(BaseModel):
 
 
 class ClassifyResponse(BaseModel):
+    request_id: str = Field(..., description="Unique identifier for this request")
     prediction: int = Field(..., description="1 = AD/ADRD present, 0 = not present")
     subtype: str = Field(..., description="ad | vd | ftd | nsd | na")
     confidence: str = Field(..., description="high | medium | low")
@@ -94,12 +88,17 @@ class ClassifyResponse(BaseModel):
     contributing_agents: list[str] = Field(
         ..., description="Agents whose findings supported the final decision"
     )
+    overruled_agents: list[str] = Field(
+        default_factory=list,
+        description="Agents overruled by the Synthesizer, with reasons",
+    )
     discrepancy: Optional[str] = Field(
         None, description="Agent disagreements and how they were resolved, if any"
     )
+    reason: str = Field("", description="One-sentence final summary from the Synthesizer")
     latency_ms: float = Field(..., description="Total pipeline wall-clock time in milliseconds")
     llm_calls: int = Field(..., description="Actual number of LLM calls made for this request")
-    estimated_cost_usd: float = Field(..., description="Estimated API cost in USD")
+    estimated_cost_usd_proxy: float = Field(..., description="Estimated API cost in USD")
     confidence_score_clin: float = Field(..., description="Rule-based confidence score from ClinTextAgent (0–1)")
     confidence_score_med: float = Field(..., description="Rule-based confidence score from MedicationAgent (0–1)")
     confidence_score_dx: float = Field(..., description="Rule-based confidence score from DiagnosisAgent (0–1)")
@@ -181,9 +180,7 @@ def health():
 def classify(request: ClassifyRequest):
     """
     Run the full 3-agent + synthesizer pipeline on a single clinical note.
-
-    - Agents 1–3 run in parallel (ThreadPoolExecutor).
-    - SynthesizerAgent runs serially after all three finish.
+    All execution logic is delegated to pipeline.run_pipeline().
     """
     if _llm is None:
         raise HTTPException(status_code=503, detail="LLM not initialised — check GEMINI_API_KEY.")
@@ -191,110 +188,14 @@ def classify(request: ClassifyRequest):
     request_id = str(uuid.uuid4())
     t0 = time.perf_counter()
 
-    row = {
-        "text": request.text,
-        "all_icd_codes": request.icd_codes,
-    }
-
     try:
-        # ── Parallel: specialist agents ───────────────────────────────────────
-        with concurrent.futures.ThreadPoolExecutor(max_workers=3) as executor:
-            future_dx   = executor.submit(run_diagnosis_agent,  row, _llm)
-            future_med  = executor.submit(run_medication_agent, row, _llm)
-            future_clin = executor.submit(run_clintext_agent,   row, _llm, _kb)
-
-            try:
-                dx_result   = future_dx.result()
-                med_result  = future_med.result()
-                clin_result = future_clin.result()
-            except Exception as exc:
-                raise HTTPException(status_code=500, detail=f"Agent error: {exc}") from exc
-
-        # ── Serial: synthesizer ───────────────────────────────────────────────
-        try:
-            synth = run_synthesizer_agent(dx_result, med_result, clin_result, _llm, text=request.text)
-        except Exception as exc:
-            raise HTTPException(status_code=500, detail=f"Synthesizer error: {exc}") from exc
-
-        latency_ms = (time.perf_counter() - t0) * 1000
-
-        # ── LLM call accounting ───────────────────────────────────────────────
-        # ClinTextAgent: always 1 call (LLM-only agent)
-        calls_clin = 1
-        # MedicationAgent: 0 if structured columns triggered, else 1
-        calls_med = 0 if med_result.get("source") == "structured" else 1
-        # DiagnosisAgent: 0 if no ICD codes matched whitelist, else 1
-        calls_dx = 0 if not dx_result.get("matched_codes") else 1
-        # SynthesizerAgent: 0 on consensus paths, 1 on LLM arbitration
-        calls_synth = 0 if synth.get("synthesis_mode") in ("consensus_positive", "consensus_negative") else 1
-
-        llm_calls = calls_clin + calls_med + calls_dx + calls_synth
-
-        findings = AgentFindings(
-            symptoms_found=bool(clin_result.get("symptoms_found", False)),
-            evidence_list=list(clin_result.get("evidence_list", [])),
-            clin_reasoning=str(clin_result.get("reasoning", "")),
-            meds_found=bool(med_result.get("meds_found", False)),
-            medications=list(med_result.get("medications", [])),
-            med_status=str(med_result.get("status", "none")),
-            med_source=str(med_result.get("source", "text")),
-            dx_found=bool(dx_result.get("dx_found", False)),
-            matched_codes=list(dx_result.get("matched_codes", [])),
-            is_current_diagnosis=bool(dx_result.get("is_current_diagnosis", False)),
-            dx_reasoning=str(dx_result.get("reasoning", "")),
+        pipeline_result, agent_detail, _ = run_pipeline(
+            text=request.text,
+            icd_codes=request.icd_codes,
+            llm=_llm,
+            kb=_kb,
+            include_detail=True,
         )
-
-        response = ClassifyResponse(
-            prediction=int(synth["final_prediction"]),
-            subtype=synth["subtype"],
-            confidence=synth["confidence"],
-            synthesis_mode=synth["synthesis_mode"],
-            causal_chain=synth["causal_chain"],
-            contributing_agents=synth["contributing_agents"],
-            discrepancy=synth.get("discrepancy") or None,
-            latency_ms=round(latency_ms, 2),
-            llm_calls=llm_calls,
-            estimated_cost_usd=round(llm_calls * _LLM_COST_PER_CALL_USD, 4),
-            confidence_score_clin=synth["confidence_score_clin"],
-            confidence_score_med=synth["confidence_score_med"],
-            confidence_score_dx=synth["confidence_score_dx"],
-            confidence_correction=synth.get("confidence_correction") or None,
-            agent_findings=findings,
-        )
-
-        _append_log({
-            "timestamp":             datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
-            "request_id":            request_id,
-            "input_length":          len(request.text),
-            "icd_codes":             request.icd_codes,
-            "prediction":            response.prediction,
-            "subtype":               response.subtype,
-            "confidence":            response.confidence,
-            "synthesis_mode":        response.synthesis_mode,
-            "llm_calls":             response.llm_calls,
-            "estimated_cost_usd":    response.estimated_cost_usd,
-            "latency_ms":            response.latency_ms,
-            "has_discrepancy":       response.discrepancy is not None,
-            "contributing_agents":   response.contributing_agents,
-            "confidence_score_clin": response.confidence_score_clin,
-            "confidence_score_med":  response.confidence_score_med,
-            "confidence_score_dx":   response.confidence_score_dx,
-            "confidence_correction": response.confidence_correction,
-            "error":                 None,
-        })
-
-        return response
-
-    except HTTPException as http_exc:
-        # Log then re-raise — preserve original status code
-        _append_log({
-            "timestamp":    datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
-            "request_id":   request_id,
-            "input_length": len(request.text),
-            "error":        f"HTTP {http_exc.status_code}: {http_exc.detail}",
-            "latency_ms":   round((time.perf_counter() - t0) * 1000, 2),
-        })
-        raise
     except Exception as exc:
         _append_log({
             "timestamp":    datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
@@ -304,3 +205,62 @@ def classify(request: ClassifyRequest):
             "latency_ms":   round((time.perf_counter() - t0) * 1000, 2),
         })
         raise HTTPException(status_code=500, detail=str(exc)) from exc
+
+    findings = AgentFindings(
+        symptoms_found       = pipeline_result.symptoms_found,
+        evidence_list        = agent_detail["clin"]["evidence_list"],
+        clin_reasoning       = agent_detail["clin"]["reasoning"],
+        meds_found           = pipeline_result.meds_found,
+        medications          = agent_detail["med"]["medications"],
+        med_status           = agent_detail["med"]["status"],
+        med_source           = agent_detail["med"]["source"],
+        dx_found             = pipeline_result.dx_found,
+        matched_codes        = agent_detail["dx"]["matched_codes"],
+        is_current_diagnosis = agent_detail["dx"]["is_current_diagnosis"],
+        dx_reasoning         = agent_detail["dx"]["reasoning"],
+    )
+
+    response = ClassifyResponse(
+        request_id=request_id,
+        prediction=int(pipeline_result.final_prediction),
+        subtype=pipeline_result.subtype,
+        confidence=pipeline_result.confidence,
+        synthesis_mode=pipeline_result.synthesis_mode,
+        causal_chain=pipeline_result.causal_chain,
+        contributing_agents=list(pipeline_result.contributing_agents),
+        overruled_agents=list(pipeline_result.overruled_agents),
+        discrepancy=pipeline_result.discrepancy,
+        reason=pipeline_result.reason,
+        latency_ms=pipeline_result.latency_ms,
+        llm_calls=pipeline_result.llm_calls,
+        estimated_cost_usd_proxy=pipeline_result.estimated_cost_usd_proxy,
+        confidence_score_clin=pipeline_result.confidence_score_clin,
+        confidence_score_med=pipeline_result.confidence_score_med,
+        confidence_score_dx=pipeline_result.confidence_score_dx,
+        confidence_correction=pipeline_result.confidence_correction,
+        agent_findings=findings,
+    )
+
+    _append_log({
+        "timestamp":                datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+        "request_id":               request_id,
+        "input_length":             len(request.text),
+        "icd_codes":                request.icd_codes,
+        "prediction":               response.prediction,
+        "subtype":                  response.subtype,
+        "confidence":               response.confidence,
+        "synthesis_mode":           response.synthesis_mode,
+        "llm_calls":                response.llm_calls,
+        "estimated_cost_usd_proxy": response.estimated_cost_usd_proxy,
+        "latency_ms":               response.latency_ms,
+        "has_discrepancy":          response.discrepancy is not None,
+        "contributing_agents":      list(response.contributing_agents),
+        "overruled_agents":         list(response.overruled_agents),
+        "confidence_score_clin":    response.confidence_score_clin,
+        "confidence_score_med":     response.confidence_score_med,
+        "confidence_score_dx":      response.confidence_score_dx,
+        "confidence_correction":    response.confidence_correction,
+        "error":                    None,
+    })
+
+    return response

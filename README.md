@@ -1,8 +1,12 @@
 # AD/ADRD CyberDoctor — Horizontal Multi-Agent System
 
-**Detects Alzheimer's Disease and related dementias (AD/ADRD) from hospital EHR discharge summaries using three parallel AI specialist agents with rule-based confidence scoring and post-hoc correction — achieving 94.3% sensitivity on 87 labeled cases while eliminating the false positives caused by naive keyword matching or ICD-code lookups alone.**
+**Detects Alzheimer's Disease and related dementias (AD/ADRD) from hospital EHR discharge summaries using three parallel AI specialist agents with rule-based confidence scoring and post-hoc correction, achieving 94.3% sensitivity on 87 labeled cases while eliminating the false positives caused by naive keyword matching or ICD code lookups alone.**
 
----
+> **Research Prototype Notice**
+> This system is a research prototype developed for academic purposes.
+> It is not validated for clinical use and must not be used to inform
+> real medical decisions. All predictions should be reviewed by qualified
+> clinicians before any clinical action is taken.
 
 ## Results
 
@@ -14,8 +18,6 @@ Metrics are printed automatically after each run. Reproduce with:
 ```bash
 python main_c.py
 ```
-
----
 
 ## Architecture
 
@@ -54,12 +56,10 @@ EHR Record (full text + ICD codes)
 
 | Agent | Role | Method | Confidence Score Logic |
 |---|---|---|---|
-| **ClinTextAgent** | Current cognitive symptoms | LLM as neurologist; optionally prepends 3 RAG-retrieved similar cases | Evidence count + source location (Assess/Plan/Discharge > HPI/PMH) − negation penalty |
+| **ClinTextAgent** | Current cognitive symptoms | LLM as neurologist; optionally prepends 3 RAG-retrieved similar cases | Evidence count + source location (Assess/Plan/Discharge > HPI/PMH) minus negation penalty |
 | **MedicationAgent** | Active AD prescriptions | Phase 1: structured columns; Phase 2: LLM full-text scan | structured=0.9 · current text=0.7 · historical=0.2 · refused/mentioned=0.1 |
 | **DiagnosisAgent** | ICD codes — current vs historical | Step 1: rule-based whitelist match (early exit if no match); Step 2: LLM context check | not found=0 · historical=0.1 · current+high=0.8 · current+medium=0.5 · current+low=0.3 |
 | **SynthesizerAgent** | Final diagnosis + subtype | Consensus early exit or LLM arbitration with agent scores; deterministic fallback | Post-hoc correction: 3 forced downgrade rules |
-
----
 
 ## Quickstart
 
@@ -96,7 +96,7 @@ streamlit run app.py
 
 Three pages:
 - **Classify** — select a dataset record or paste a note; renders agent cards with ✓/✗, confidence progress bars, expandable evidence details, and a colour-coded verdict block
-- **Review Queue** — bulk-import from `predictions_c.csv`, or auto-populated on each classify; approve / reject with comments
+- **Review Queue** — bulk-import from `predictions_c.csv`, or auto-populated after every classify call (all classification results are added unconditionally, not filtered by confidence or discrepancy); approve / reject with comments
 - **Eval Dashboard** — metric cards, confusion matrix, error-bucket bar chart, per-agent confidence histograms, contradictory-case table
 
 **REST API (FastAPI):**
@@ -116,17 +116,19 @@ curl -X POST https://clinical-nlp-agent.onrender.com/classify \
 **Full API response schema:**
 ```json
 {
+  "request_id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
   "prediction": 1,
   "subtype": "ad",
   "confidence": "high",
   "synthesis_mode": "llm_arbitration",
-  "causal_chain": "ClinTextAgent found explicit dementia documentation...",
+  "causal_chain": "ClinTextAgent found explicit dementia documentation in A&P...",
   "contributing_agents": ["ClinTextAgent", "DiagnosisAgent"],
-  "discrepancy": null,
   "overruled_agents": [],
+  "discrepancy": null,
+  "reason": "Alzheimer's dementia confirmed by clinical documentation and ICD coding.",
   "latency_ms": 4821.3,
   "llm_calls": 3,
-  "estimated_cost_usd": 0.006,
+  "estimated_cost_usd_proxy": 0.006,
   "confidence_score_clin": 0.7,
   "confidence_score_med": 0.0,
   "confidence_score_dx": 0.8,
@@ -134,20 +136,18 @@ curl -X POST https://clinical-nlp-agent.onrender.com/classify \
   "agent_findings": {
     "symptoms_found": true,
     "evidence_list": ["progressive memory loss documented in A&P..."],
-    "clin_reasoning": "...",
+    "clin_reasoning": "Clear dementia documented in assessment and plan.",
     "meds_found": false,
     "medications": [],
     "med_status": "none",
-    "med_source": "text",
+    "med_source": "none",
     "dx_found": true,
     "matched_codes": ["F0280"],
     "is_current_diagnosis": true,
-    "dx_reasoning": "..."
+    "dx_reasoning": "F0280 appears as active diagnosis in the problem list."
   }
 }
 ```
-
----
 
 ## Evaluation
 
@@ -157,7 +157,7 @@ The eval harness reads `outputs/predictions_c.csv` — **no pipeline re-run requ
 # Basic eval — no API key needed
 python eval/eval_harness.py
 
-# Full eval with LLM-as-judge (requires GEMINI_API_KEY)
+# Full eval with LLM as judge (requires GEMINI_API_KEY)
 python eval/eval_harness.py --run-llm-judge
 ```
 
@@ -165,10 +165,10 @@ python eval/eval_harness.py --run-llm-judge
 
 | Metric | Value |
 |---|---|
-| Accuracy | **90.8%** |
-| Sensitivity | **94.3%** |
-| PPV (Precision) | **90.9%** |
-| F1 | **92.6%** |
+| Accuracy | **90.8%** *(baseline run, no RAG, run_id pending update)* |
+| Sensitivity | **94.3%** *(baseline run, no RAG, run_id pending update)* |
+| PPV (Precision) | **90.9%** *(baseline run, no RAG, run_id pending update)* |
+| F1 | **92.6%** *(baseline run, no RAG, run_id pending update)* |
 | Contradictory cases | **38 / 87 (44%)** — agents disagreed; resolved by Synthesizer |
 
 **Error buckets:**
@@ -181,14 +181,12 @@ python eval/eval_harness.py --run-llm-judge
 | Low-confidence cases | — | `confidence == "low"` after post-hoc correction |
 | Consensus errors | — | All three agents agreed but prediction was wrong |
 
-**LLM-as-judge** scores each contradictory case on three dimensions (0–1):
+**LLM as judge** scores each contradictory case on three dimensions (0–1):
 - `reasoning_clarity` — decision traceable to specific evidence?
 - `contradiction_handling` — overrule justification sufficient?
 - `evidence_consistency` — conclusion consistent with cited evidence?
 
 **CI gate:** Runs on every push. If `predictions_c.csv` exists and sensitivity drops below **0.90**, the build fails.
-
----
 
 ## Engineering Design Decisions
 
@@ -199,16 +197,12 @@ python eval/eval_harness.py --run-llm-judge
 
 **Impact:** ~3× faster per record. Total latency is bounded by the slowest agent, not their sum.
 
----
-
 ### 2. Evidence Fusion via Rule-Based Confidence Scores
 **What:** Each agent computes a deterministic `confidence_score` (0–1) from objective evidence characteristics, independently of what the LLM self-reports. These scores are passed as explicit prompt signals to the Synthesizer, which references them when weighing evidence but retains full judgment authority — there are no fixed numeric weights or hard votes.
 
 **Why:** A current AD medication prescription means a physician has *already diagnosed* the patient and started treatment — the strongest possible indirect confirmation. ICD codes alone are weakest: they are routinely carried forward from previous admissions without reflecting the current encounter. Rule-based scores make these distinctions explicit and inspectable without locking the Synthesizer into a rigid arithmetic formula.
 
 **Impact:** The system mirrors real clinical reasoning. Medication evidence produces a high confidence score that pushes the Synthesizer toward a positive prediction; ICD codes alone produce a low score that the Synthesizer can and does override when the note context warrants it.
-
----
 
 ### 3. Consensus-Based Early Exit
 **What:** Before invoking the LLM Synthesizer, the system checks for agreement: if MedicationAgent and ClinTextAgent are both positive → `consensus_positive` (predict 1, skip LLM); if all three agents are negative → `consensus_negative` (predict 0, skip LLM). Only mixed signals trigger `llm_arbitration`.
@@ -217,16 +211,12 @@ python eval/eval_harness.py --run-llm-judge
 
 **Impact:** Reduces Synthesizer LLM calls on unambiguous records. Frees the LLM budget for genuinely contested cases. `synthesis_mode` in every response makes it auditable which path was taken.
 
----
-
 ### 4. Contradiction Detection and Auditability
 **What:** The Synthesizer explicitly detects disagreements between agents, records which agents were overruled, and writes the full reasoning chain to `causal_chain` and `overruled_agents`.
 
 **Why:** Medical AI must be auditable. A black-box "prediction: 1" is not actionable for a clinician. Every decision needs to explain *why* — especially when agents contradict each other (e.g., ICD codes present but note shows an orthopedic admission with dementia only in past history).
 
 **Impact:** Full decision traceability. Reviewers can inspect exactly which agent was trusted, which was overruled, and why — for every single prediction.
-
----
 
 ### 5. Graceful Fallback — Zero Silent Failures
 **What:** If the Synthesizer's LLM call fails or returns unparseable output, the system falls back to a deterministic rule-based decision (medication → ICD + symptoms → symptoms → ICD → negative, in priority order).
@@ -235,8 +225,6 @@ python eval/eval_harness.py --run-llm-judge
 
 **Impact:** The pipeline never crashes mid-run or returns a null prediction. Fallback results are labeled `[Fallback — LLM failed]` in `causal_chain` so reviewers know which records to re-examine.
 
----
-
 ### 6. Cost-Optimized ICD Lookup
 **What:** DiagnosisAgent runs a rule-based ICD whitelist match *before* any LLM call. If no AD/ADRD codes are present, it returns immediately with zero API cost.
 
@@ -244,16 +232,12 @@ python eval/eval_harness.py --run-llm-judge
 
 **Impact:** ~40% reduction in LLM calls for DiagnosisAgent. The LLM is only invoked when there is actual coded evidence to evaluate (current vs. historical decision).
 
----
-
 ### 7. Single LLM Initialization via Lifespan Pattern
 **What:** In the FastAPI service, the Gemini LLM client and ChromaDB knowledge base are initialized once at startup via FastAPI's `lifespan` context manager — not recreated per request.
 
 **Why:** LLM client creation involves authentication, SDK setup, and connection overhead (~100–300 ms). ChromaDB requires loading its on-disk index. Rebuilding per request wastes these costs under concurrent load.
 
 **Impact:** Both resources are shared across all requests. Per-request latency stays predictable and resource contention is avoided.
-
----
 
 ### 8. Rule-Based Confidence Scoring
 **What:** Each agent computes a `confidence_score` (0–1) deterministically from objective evidence characteristics, independently of the LLM's self-reported confidence:
@@ -268,8 +252,6 @@ python eval/eval_harness.py --run-llm-judge
 
 **Impact:** The Synthesizer receives objective evidence quality signals alongside each agent's narrative. The LLM judge and downstream systems can use these scores independently of the LLM's own assessment.
 
----
-
 ### 9. Post-hoc Confidence Correction
 **What:** After the Synthesizer produces its output, a deterministic rule layer applies forced confidence downgrades before the result is returned. Three rules (applied in order, early-return on first match):
 
@@ -283,16 +265,12 @@ Each downgrade writes its reason to `confidence_correction`.
 
 **Impact:** Confidence labels become trustworthy as a triage signal. Cases remaining `high` have passed both the LLM and the rule layer. The correction reason provides a clear audit trail.
 
----
-
 ### 10. RAG-Augmented Clinical Context
-**What:** ClinTextAgent optionally retrieves the 3 most similar clinical cases from a ChromaDB vector knowledge base (seeded with 10 hand-authored reference cases) and prepends them as few-shot context to its prompt. RAG failure never blocks the agent.
+**What:** ClinTextAgent retrieves the 3 most similar clinical cases from a ChromaDB vector knowledge base and prepends them as few-shot context to its prompt. RAG failure never blocks the agent. Both the API server (via FastAPI lifespan) and the batch pipeline (`main_c.py`) now initialize the KnowledgeBase at startup and seed it with the same 10 reference cases, so both modes receive identical RAG context. The current seed data consists of 10 synthetically authored cases (5 AD/ADRD positive across subtypes, 5 negative). Production deployments should replace or extend these with real, annotated clinical cases to maximize retrieval quality.
 
 **Why:** Gemini-2.5-Flash with no context can misclassify ambiguous cases — dementia mentioned only in past history, or delirium mimicking cognitive decline. Concrete reference cases anchor the model's reasoning to clinically validated examples.
 
-**Impact:** The LLM receives labeled examples at inference time without fine-tuning. The knowledge base is extensible: add a confirmed case with `KnowledgeBase.add_case()` and it is immediately available for future retrievals.
-
----
+**Impact:** The LLM receives labeled examples at inference time without fine-tuning. The knowledge base is extensible: add a confirmed case with `KnowledgeBase.add_case()` and it is immediately available for future retrievals across both the API and batch pipeline.
 
 ## File Structure
 
@@ -300,6 +278,9 @@ Each downgrade writes its reason to `confidence_correction`.
 ad_cyberdoctor_horizontal/
 ├── main_c.py                   # Batch pipeline: load CSV → agents → predictions_c.csv → metrics
 ├── api.py                      # FastAPI service: POST /classify, GET /health + JSONL logging
+├── pipeline.py                 # Shared pipeline core: parallel dispatch, timeouts, PipelineResult
+├── schemas.py                  # Pydantic data models for all inter-agent communication
+├── logger.py                   # Centralised logging configuration (LOG_LEVEL env var)
 ├── app.py                      # Streamlit frontend: Classify / Review Queue / Eval Dashboard
 ├── review_queue.py             # SQLite review queue (add, approve, reject, bulk import)
 ├── visualize.py                # Standalone interactive HTML report generator
@@ -312,24 +293,26 @@ ad_cyberdoctor_horizontal/
 │   └── synthesizer_agent.py    # Attending: consensus exit / LLM arbitration / fallback / post-hoc
 ├── rag/
 │   ├── knowledge_base.py       # ChromaDB PersistentClient wrapper (add, retrieve, stats)
-│   └── seed_data.py            # 10 seed cases (5 AD+ subtypes, 5 negative)
+│   └── seed_data.py            # 10 synthetic seed cases (5 AD+ subtypes, 5 negative)
 ├── mcp_server/
 │   └── server.py               # MCP tools: retrieve_similar_cases, lookup_icd_codes
 ├── eval/
 │   ├── eval_harness.py         # Metrics, error buckets, LLM judge, CI sensitivity gate
-│   ├── llm_judge.py            # LLM-as-judge scoring for contradictory cases
+│   ├── llm_judge.py            # LLM as judge scoring for contradictory cases
 │   └── report_generator.py     # Self-contained HTML eval report
+├── tests/
+│   ├── test_synthesizer.py     # Unit tests for SynthesizerAgent logic (Pydantic fixtures)
+│   └── test_pipeline_contract.py  # Schema contracts: PipelineResult construction, EVIDENCE_COLUMNS coverage
 ├── .github/workflows/ci.yml    # flake8 lint + import checks + sensitivity gate (≥0.90)
 ├── .streamlit/config.toml      # Dark medical theme
 ├── data/
 │   └── data_test.csv           # Input EHR data
 └── outputs/
     ├── predictions_c.csv       # Per-record predictions with full reasoning (checkpoint/resume)
+    ├── agent_evidence.csv      # Per-agent raw evidence linked to predictions_c.csv by note_id + run_id
     ├── review_queue.db         # SQLite review queue
     └── report.html             # Interactive visualization report
 ```
-
----
 
 ## Output Schema
 
@@ -337,22 +320,54 @@ ad_cyberdoctor_horizontal/
 
 | Column | Description |
 |---|---|
+| `note_id` / `subject_id` | EHR record identifiers |
 | `final_prediction` | **1** = AD/ADRD present, **0** = not present |
 | `subtype` | `ad` / `vd` / `ftd` / `nsd` / `na` |
 | `confidence` | `high` / `medium` / `low` |
+| `synthesis_mode` | `consensus_positive` / `consensus_negative` / `llm_arbitration` |
 | `causal_chain` | Synthesizer's step-by-step reasoning |
-| `contributing_agents` | Agents with positive findings |
+| `contributing_agents` | Agents with positive findings (JSON array) |
+| `overruled_agents` | Agents the Synthesizer disagreed with (JSON array) |
 | `discrepancy` | Agent conflicts and how resolved |
-| `overruled_agents` | Agents the Synthesizer disagreed with |
+| `reason` | One-sentence final summary from the Synthesizer |
 | `dx_found` / `meds_found` / `symptoms_found` | Per-agent binary signal flags |
+| `confidence_score_clin` / `confidence_score_med` / `confidence_score_dx` | Rule-based evidence quality scores (0–1) |
+| `confidence_correction` | Reason if post-hoc rules downgraded Synthesizer confidence |
+| `latency_ms` | Total wall-clock time for the record |
+| `llm_calls` | Actual LLM calls made (1–4 depending on path taken) |
+| `estimated_cost_usd_proxy` | Estimated API cost at $0.002 per call |
+| `run_id` | UUID shared across all records in one invocation |
+| `timestamp` | UTC timestamp of prediction |
+| `text_snippet` | First 200 characters of the clinical note |
 
 Processing supports **checkpoint/resume**: records already in `predictions_c.csv` are skipped on restart.
+
+### `outputs/agent_evidence.csv` (batch pipeline)
+
+Stores the raw per-agent outputs for every processed record, enabling post-hoc evidence audits without re-running the pipeline.
+
+| Column | Description |
+|---|---|
+| `note_id` | Join key to `predictions_c.csv` |
+| `run_id` | Join key to `predictions_c.csv` (identifies the batch run) |
+| `clin_evidence_list` | JSON array of clinical text quotes extracted by ClinTextAgent |
+| `clin_reasoning` | ClinTextAgent's full reasoning narrative |
+| `clin_assessment` | ClinTextAgent's one-sentence assessment |
+| `med_medications` | JSON array of AD medications detected by MedicationAgent |
+| `med_status` | Medication status: `current` / `historical` / `refused` / `mentioned` / `none` |
+| `med_source` | Where the medication was found: `structured` / `text` / `none` |
+| `med_reasoning` | MedicationAgent's full reasoning narrative |
+| `med_assessment` | MedicationAgent's one-sentence assessment |
+| `dx_matched_codes` | JSON array of ICD codes matched to the AD/ADRD whitelist |
+| `dx_is_current_diagnosis` | Whether matched codes reflect a current (not historical) diagnosis |
+| `dx_reasoning` | DiagnosisAgent's full reasoning narrative |
+| `dx_assessment` | DiagnosisAgent's one-sentence assessment |
+
+Link records between the two files using `note_id` and `run_id` together.
 
 ### Review Queue (`outputs/review_queue.db`)
 
 Each case stores: `note_id`, `text_snippet` (200 chars), `prediction`, `confidence`, `confidence_score_clin/med/dx`, `causal_chain`, `discrepancy`, `status` (pending / approved / rejected), `reviewer_comment`, `created_at`, `reviewed_at`.
-
----
 
 ## LLM Configuration
 
@@ -361,10 +376,8 @@ Each case stores: `note_id`, `text_snippet` (200 chars), `prediction`, `confiden
 | Model | `gemini-2.5-flash` |
 | Temperature | `0` (deterministic) |
 | Context window | 1,000,000 tokens (full notes, no truncation) |
-| LLM calls per record | 0–4 (consensus = 2–3; arbitration = 4; DiagnosisAgent skips if no ICD match) |
+| LLM calls per record | 1–4 (ClinTextAgent always calls LLM; consensus = 1–3; arbitration = 4; DiagnosisAgent skips if no ICD match) |
 | Rate limit buffer | 30 s between records (batch mode) |
-
----
 
 ## MCP Integration
 
