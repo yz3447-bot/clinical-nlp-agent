@@ -123,6 +123,54 @@ def compute_metrics(df: pd.DataFrame) -> dict:
     }
 
 
+# ─── Subtype metrics ──────────────────────────────────────────────────────────
+
+def compute_subtype_metrics(df: pd.DataFrame) -> dict | None:
+    """Per-subtype precision / recall / F1 among labeled positive cases.
+
+    Returns None if the ground_truth_subtype column is absent or empty.
+    """
+    if "ground_truth_subtype" not in df.columns:
+        return None
+
+    pos = df[
+        (df["ground_truth"] == 1) &
+        (df["ground_truth_subtype"].str.strip() != "") &
+        (df["ground_truth_subtype"].str.strip() != "na")
+    ].copy()
+
+    if pos.empty:
+        return None
+
+    subtypes = ["ad", "vd", "ftd", "nsd"]
+    results: dict = {}
+    for st in subtypes:
+        gt_pos   = int((pos["ground_truth_subtype"] == st).sum())
+        pred_pos = int(((pos["subtype"] == st) & (pos["final_prediction"] == 1)).sum())
+        correct  = int(
+            ((pos["ground_truth_subtype"] == st) &
+             (pos["subtype"] == st) &
+             (pos["final_prediction"] == 1)).sum()
+        )
+        precision = correct / pred_pos if pred_pos > 0 else 0.0
+        recall    = correct / gt_pos   if gt_pos  > 0 else 0.0
+        f1        = (2 * precision * recall / (precision + recall)
+                     if (precision + recall) > 0 else 0.0)
+        results[st] = {
+            "gt_count": gt_pos, "pred_count": pred_pos, "correct": correct,
+            "precision": precision, "recall": recall, "f1": f1,
+        }
+
+    total = len(pos)
+    correct_total = int((pos["ground_truth_subtype"] == pos["subtype"]).sum())
+    results["_overall"] = {
+        "total": total,
+        "correct": correct_total,
+        "accuracy": correct_total / total if total > 0 else 0.0,
+    }
+    return results
+
+
 # ─── Error bucket analysis ────────────────────────────────────────────────────
 
 def build_error_buckets(df: pd.DataFrame) -> dict:
@@ -177,6 +225,33 @@ def _print_summary(metrics: dict, buckets: dict) -> None:
     logger.info(sep)
 
 
+# ─── Subtype summary ─────────────────────────────────────────────────────────
+
+def _print_subtype_summary(subtype_metrics: dict) -> None:
+    overall = subtype_metrics.get("_overall", {})
+    sep = "=" * 58
+    logger.info(sep)
+    logger.info("  SUBTYPE ACCURACY  (positive cases only)")
+    logger.info(sep)
+    logger.info(
+        "  Overall subtype accuracy : %.4f  (%d/%d)",
+        overall.get("accuracy", 0.0),
+        overall.get("correct", 0),
+        overall.get("total", 0),
+    )
+    logger.info("  %-6s  %6s  %6s  %6s  %7s  %7s  %5s",
+                "Type", "GT", "Pred", "Corr", "Prec", "Recall", "F1")
+    for st in ("ad", "vd", "ftd", "nsd"):
+        m = subtype_metrics.get(st, {})
+        logger.info(
+            "  %-6s  %6d  %6d  %6d  %7.4f  %7.4f  %.4f",
+            st,
+            m.get("gt_count", 0), m.get("pred_count", 0), m.get("correct", 0),
+            m.get("precision", 0.0), m.get("recall", 0.0), m.get("f1", 0.0),
+        )
+    logger.info(sep)
+
+
 # ─── Main ─────────────────────────────────────────────────────────────────────
 
 def main() -> None:
@@ -213,6 +288,12 @@ def main() -> None:
     buckets = build_error_buckets(df)
 
     _print_summary(metrics, buckets)
+
+    subtype_metrics = compute_subtype_metrics(df)
+    if subtype_metrics:
+        _print_subtype_summary(subtype_metrics)
+    else:
+        logger.info("Subtype metrics skipped — ground_truth_subtype column absent or empty.")
 
     # ── Optional LLM judge ────────────────────────────────────────────────────
     judge_results: list[dict] = []

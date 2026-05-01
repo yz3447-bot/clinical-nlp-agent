@@ -21,26 +21,26 @@ logger = get_logger(__name__)
 
 # ─── Judge prompt ─────────────────────────────────────────────────────────────
 
-JUDGE_PROMPT = """你是一位临床AI系统评审专家。请评估以下AD/ADRD诊断系统的推理链质量。
+JUDGE_PROMPT = """You are a clinical AI systems reviewer. Evaluate the reasoning quality of the following AD/ADRD diagnosis decision.
 
-预测结果：{prediction}（1=有AD，0=无AD）
-实际标签：{ground_truth}
-Agent矛盾情况：{discrepancy}
-推理链：{causal_chain}
-被overrule的agent：{overruled_agents}
+Prediction: {prediction} (1 = AD/ADRD present, 0 = not present)
+Ground truth: {ground_truth}
+Agent discrepancy: {discrepancy}
+Causal chain: {causal_chain}
+Overruled agents: {overruled_agents}
 
-请从以下三个维度打分（每项0-1）：
-1. 推理逻辑是否清晰（能否追溯到具体证据）
-2. 矛盾处理是否合理（overrule的理由是否充分）
-3. 结论与证据是否一致
+Score the decision on three dimensions (each 0.0–1.0):
+1. reasoning_clarity — can the decision be traced step-by-step to specific evidence quotes?
+2. contradiction_handling — is the justification for overruling any agent sufficient and clinically sound?
+3. evidence_consistency — is the final conclusion consistent with the evidence cited?
 
-输出JSON：
+Output ONLY this JSON:
 {{
   "reasoning_clarity": float,
   "contradiction_handling": float,
   "evidence_consistency": float,
   "overall_score": float,
-  "judge_comment": str
+  "judge_comment": "one sentence summarising the main strength or weakness of this reasoning chain"
 }}"""
 
 _CAUSAL_CHAIN_CHAR_LIMIT = 2000  # avoid sending extremely long chains to the LLM

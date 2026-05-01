@@ -19,6 +19,10 @@ from schemas import (
 
 logger = get_logger(__name__)
 
+# Confidence scores below this threshold are considered weak evidence in post-hoc correction Rule B.
+# Chosen to exclude single-source, unconfirmed, or historical-only signals (all score ≤ 0.3).
+_WEAK_EVIDENCE_THRESHOLD = 0.4
+
 SYNTHESIZER_PROMPT = """You are a senior attending physician and dementia specialist making
 the final diagnosis for a patient.
 
@@ -234,7 +238,7 @@ def _apply_confidence_correction(
     # Rule B: all contributing agents have weak evidence → cap at low
     if (
         contributing_scores
-        and all(s < 0.4 for s in contributing_scores)
+        and all(s < _WEAK_EVIDENCE_THRESHOLD for s in contributing_scores)
         and current_confidence in ("high", "medium")
     ):
         result["confidence"] = "low"

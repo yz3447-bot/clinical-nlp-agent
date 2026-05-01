@@ -1,6 +1,6 @@
 # AD/ADRD CyberDoctor — Horizontal Multi-Agent System
 
-**Detects Alzheimer's Disease and related dementias (AD/ADRD) from hospital EHR discharge summaries using three parallel AI specialist agents with rule-based confidence scoring and post-hoc correction, achieving 94.3% sensitivity on 87 labeled cases while eliminating the false positives caused by naive keyword matching or ICD code lookups alone.**
+**Detects Alzheimer's Disease and related dementias (AD/ADRD) from hospital EHR discharge summaries using three parallel AI specialist agents with rule-based confidence scoring and post-hoc correction, achieving 88.68% sensitivity on 87 labeled cases (v1_baseline) while eliminating the false positives caused by naive keyword matching or ICD code lookups alone.**
 
 > **Research Prototype Notice**
 > This system is a research prototype developed for academic purposes.
@@ -40,7 +40,7 @@ EHR Record (full text + ICD codes)
                     │   SynthesizerAgent   │
                     │  attending physician │
                     │                      │
-                    │  ① consensus_positive│  med + clin both pos
+                    │  ① consensus_positive│  all 3 agents pos
                     │     → skip LLM       │  → pred=1, high conf
                     │  ② consensus_negative│  all three negative
                     │     → skip LLM       │  → pred=0, high conf
@@ -57,8 +57,8 @@ EHR Record (full text + ICD codes)
 | Agent | Role | Method | Confidence Score Logic |
 |---|---|---|---|
 | **ClinTextAgent** | Current cognitive symptoms | LLM as neurologist; optionally prepends 3 RAG-retrieved similar cases | Evidence count + source location (Assess/Plan/Discharge > HPI/PMH) minus negation penalty |
-| **MedicationAgent** | Active AD prescriptions | Phase 1: structured columns; Phase 2: LLM full-text scan | structured=0.9 · current text=0.7 · historical=0.2 · refused/mentioned=0.1 |
-| **DiagnosisAgent** | ICD codes — current vs historical | Step 1: rule-based whitelist match (early exit if no match); Step 2: LLM context check | not found=0 · historical=0.1 · current+high=0.8 · current+medium=0.5 · current+low=0.3 |
+| **MedicationAgent** | Active AD prescriptions | Phase 1: structured columns; Phase 2: LLM full-text scan | annotation/structured=0.9 · current text (recognized drug)=0.75 · current text (unrecognized)=0.6 · historical/refused=0.2 · mentioned=0.05 · not found=0.0 |
+| **DiagnosisAgent** | ICD codes — current vs historical | Step 1: rule-based whitelist match (early exit if no match); Step 2: LLM context check | not found=0.0 · historical=0.0 · current+high=0.9 · current+medium=0.6 · current+low=0.3 |
 | **SynthesizerAgent** | Final diagnosis + subtype | Consensus early exit or LLM arbitration with agent scores; deterministic fallback | Post-hoc correction: 3 forced downgrade rules |
 
 ## Quickstart
@@ -161,25 +161,26 @@ python eval/eval_harness.py
 python eval/eval_harness.py --run-llm-judge
 ```
 
-**Results on test set (87 labeled cases):**
+**Results on test set (87 labeled cases) — v1_baseline, `run_id 1a4bc982-caa2-4a17-af15-5dfc19286ed1`:**
 
 | Metric | Value |
 |---|---|
-| Accuracy | **90.8%** *(baseline run, no RAG, run_id pending update)* |
-| Sensitivity | **94.3%** *(baseline run, no RAG, run_id pending update)* |
-| PPV (Precision) | **90.9%** *(baseline run, no RAG, run_id pending update)* |
-| F1 | **92.6%** *(baseline run, no RAG, run_id pending update)* |
-| Contradictory cases | **38 / 87 (44%)** — agents disagreed; resolved by Synthesizer |
+| Accuracy | **89.66%** (78 / 87) |
+| Sensitivity | **88.68%** |
+| PPV (Precision) | **94.00%** |
+| Specificity | **91.18%** |
+| F1 | **91.26%** |
+| Cases with discrepancy | **21 / 87 (24%)** — agents disagreed; resolved by Synthesizer |
 
 **Error buckets:**
 
 | Bucket | Count | Definition |
 |---|---|---|
-| False Positives | 5 | Predicted AD/ADRD, actually negative |
-| False Negatives | 3 | Predicted no AD/ADRD, actually positive |
-| Contradictory cases | 38 | Agents had discrepancy — core focus for LLM judge |
-| Low-confidence cases | — | `confidence == "low"` after post-hoc correction |
-| Consensus errors | — | All three agents agreed but prediction was wrong |
+| False Positives | 3 | Predicted AD/ADRD, actually negative |
+| False Negatives | 6 | Predicted no AD/ADRD, actually positive |
+| Contradictory errors | 3 | Error cases with agent discrepancy — core focus for LLM judge |
+| Low-confidence errors | 5 | Error cases where `confidence == "low"` after post-hoc correction |
+| Consensus errors | 1 | All three agents agreed but prediction was wrong |
 
 **LLM as judge** scores each contradictory case on three dimensions (0–1):
 - `reasoning_clarity` — decision traceable to specific evidence?
@@ -205,7 +206,7 @@ python eval/eval_harness.py --run-llm-judge
 **Impact:** The system mirrors real clinical reasoning. Medication evidence produces a high confidence score that pushes the Synthesizer toward a positive prediction; ICD codes alone produce a low score that the Synthesizer can and does override when the note context warrants it.
 
 ### 3. Consensus-Based Early Exit
-**What:** Before invoking the LLM Synthesizer, the system checks for agreement: if MedicationAgent and ClinTextAgent are both positive → `consensus_positive` (predict 1, skip LLM); if all three agents are negative → `consensus_negative` (predict 0, skip LLM). Only mixed signals trigger `llm_arbitration`.
+**What:** Before invoking the LLM Synthesizer, the system checks for agreement: if all three agents (MedicationAgent, ClinTextAgent, and DiagnosisAgent) are positive → `consensus_positive` (predict 1, skip LLM); if all three agents are negative → `consensus_negative` (predict 0, skip LLM). Only mixed signals trigger `llm_arbitration`.
 
 **Why:** When strong independent signals agree, LLM arbitration adds cost and latency without changing the outcome. Consensus cases — both majority-positive and all-negative — are the clearest, so the deterministic early exit is correct and cheaper.
 
@@ -244,9 +245,9 @@ python eval/eval_harness.py --run-llm-judge
 
 | Agent | Score Logic |
 |---|---|
-| ClinTextAgent | +0.4 if ≥3 evidence items, else +0.2; +0.3 if Assessment/Plan/Discharge source, +0.1 if HPI/PMH; −0.3 if negation phrases present |
-| MedicationAgent | 0.9 structured column hit · 0.7 current text · 0.2 historical · 0.1 refused/mentioned · 0.0 not found |
-| DiagnosisAgent | 0.0 not found · 0.1 historical · 0.8/0.5/0.3 current + high/medium/low LLM confidence |
+| ClinTextAgent | ≥5 evidence items → +0.5; ≥2 → +0.35; else → +0.15; +0.3 Assessment/Plan/Discharge; +0.2 HPI; +0.05 PMH; −0.2 if >50% quotes negated |
+| MedicationAgent | 0.9 annotation/structured · 0.75 current text (recognized drug) · 0.6 current text (unrecognized) · 0.2 historical/refused · 0.05 mentioned · 0.0 not found |
+| DiagnosisAgent | 0.0 not found · 0.0 historical (non-current) · 0.9/0.6/0.3 current + high/medium/low LLM confidence |
 
 **Why:** LLM self-reported confidence is unreliable — models frequently express high confidence regardless of actual evidence quality. Rule-based scores are reproducible, inspectable, and cannot be inflated by confident-sounding but unsupported LLM text.
 
@@ -255,11 +256,11 @@ python eval/eval_harness.py --run-llm-judge
 ### 9. Post-hoc Confidence Correction
 **What:** After the Synthesizer produces its output, a deterministic rule layer applies forced confidence downgrades before the result is returned. Three rules (applied in order, early-return on first match):
 
-1. Discrepancy present **and** agents were overruled → cap at `medium`
-2. Two or more agents have `confidence_score < 0.3` → force to `low`
-3. No medication evidence **and** fewer than two clinical quotes → force to `low`
+1. Overruled agents present **and** current confidence is `high` → cap at `medium`
+2. All contributing agents have `confidence_score < 0.4` → force to `low`
+3. Positive prediction (`final_prediction=1`) with no contributing agents → force to `low`
 
-Each downgrade writes its reason to `confidence_correction`.
+All three rules are evaluated in order and stack — all applicable rules apply before returning. Each downgrade appends its reason to `confidence_correction`.
 
 **Why:** LLMs tend toward overconfidence when synthesizing conflicting evidence. A `high` label on a contested case misleads downstream users and reviewers.
 

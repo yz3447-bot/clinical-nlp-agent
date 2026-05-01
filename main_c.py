@@ -31,7 +31,7 @@ DATA_DIR = Path(__file__).parent / "data"
 OUTPUT_DIR = Path(__file__).parent / "outputs"
 OUTPUT_CSV    = OUTPUT_DIR / "predictions_c.csv"
 EVIDENCE_CSV  = OUTPUT_DIR / "agent_evidence.csv"
-WAIT_BETWEEN_ROWS = 30  # seconds between records (rate limit buffer)
+WAIT_BETWEEN_ROWS = 0  # seconds between records (rate limit buffer)
 
 # Driven entirely by PipelineResult — no manual field list to maintain
 OUTPUT_COLUMNS = list(PipelineResult.model_fields.keys())
@@ -152,9 +152,9 @@ def process_row(row: dict, llm, kb=None, run_id: str = "") -> dict:
     text      = str(row.get("text", "") or "")
     icd_codes = str(row.get("all_icd_codes", "") or "")
     med_annotation_col = next(
-        (c for c in row_dict if "AD/ADRD medications" in c), None
+        (c for c in row if "AD/ADRD medications" in c), None
     )
-    ad_med_annotation = str(row_dict.get(med_annotation_col, "")) if med_annotation_col else ""
+    ad_med_annotation = str(row.get(med_annotation_col, "")) if med_annotation_col else ""
 
     logger.info(
         "[Processing] note_id=%s | subject_id=%s | gt=%s | gt_subtype=%s | text_len=%d",
@@ -226,7 +226,14 @@ def main():
             label=case["label"],
             subtype=case["subtype"],
         )
-    logger.info("[RAG] KnowledgeBase initialized with %d seed cases.", _kb.get_stats())
+    kb_size = _kb.get_stats()
+    logger.info("[RAG] KnowledgeBase initialized with %d seed cases.", kb_size)
+    if kb_size <= len(SEED_CASES):
+        logger.warning(
+            "[RAG] KB contains only %d synthetic seed cases. "
+            "Run `python populate_kb.py` to expand with real training cases for better RAG quality.",
+            kb_size,
+        )
 
     csv_files = find_csv_files()
     logger.info("[Data] Found %d CSV file(s): %s", len(csv_files), [f.name for f in csv_files])
@@ -275,11 +282,7 @@ def main():
                 processed_ids.add(note_id)
                 total_processed += 1
 
-                logger.info(
-                    "  -> Saved result for note_id=%s. Waiting %ds...",
-                    note_id, WAIT_BETWEEN_ROWS,
-                )
-                time.sleep(WAIT_BETWEEN_ROWS)
+                logger.info("  -> Saved result for note_id=%s.", note_id)
 
             except Exception as e:
                 logger.error("[ERROR] note_id=%s: %s", note_id, e)
