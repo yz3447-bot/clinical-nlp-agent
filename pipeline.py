@@ -94,7 +94,7 @@ def run_pipeline(
     text: str,
     icd_codes: str,
     llm,
-    kb=None,
+    boundary_kb=None,
     run_id: str = "",
     note_id: str = "",
     subject_id: str = "",
@@ -110,7 +110,8 @@ def run_pipeline(
         text:                  Full clinical note text.
         icd_codes:             Pipe-separated ICD-9/10 codes (e.g. 'F0280|G309').
         llm:                   LangChain LLM instance.
-        kb:                    Optional KnowledgeBase for RAG (ClinTextAgent only).
+        boundary_kb:           Optional BoundaryKnowledgeBase; triggers a second
+                               ClinTextAgent LLM call for boundary cases.
         run_id:                Batch run identifier; empty string for API calls.
         note_id / subject_id:  EHR identifiers; empty strings for API calls.
         ground_truth /
@@ -137,7 +138,7 @@ def run_pipeline(
     with concurrent.futures.ThreadPoolExecutor(max_workers=3) as executor:
         future_dx   = executor.submit(run_diagnosis_agent,  row, llm)
         future_med  = executor.submit(run_medication_agent, row, llm)
-        future_clin = executor.submit(run_clintext_agent,   row, llm, kb)
+        future_clin = executor.submit(run_clintext_agent,   row, llm, boundary_kb)
 
         try:
             dx_result = future_dx.result(timeout=_AGENT_TIMEOUT_S)
@@ -171,9 +172,10 @@ def run_pipeline(
         med_result.medications, med_result.source,
     )
     logger.info(
-        "  [L1-ClinTextAgent]   symptoms_found=%s conf=%s evidence_count=%d",
+        "  [L1-ClinTextAgent]   symptoms_found=%s conf=%s evidence_count=%d boundary=%s",
         clin_result.symptoms_found, clin_result.confidence,
         len(clin_result.evidence_list),
+        clin_result.boundary_principles_applied or "none",
     )
 
     # ── Error-marker check (supplements timeout errors already collected) ─────
@@ -231,7 +233,8 @@ def run_pipeline(
     latency_ms = (time.perf_counter() - t_start) * 1000
 
     # ── LLM call accounting ───────────────────────────────────────────────────
-    calls_clin  = 1  # ClinTextAgent always calls LLM when text is non-empty
+    # ClinTextAgent uses 2 calls when boundary refinement was triggered
+    calls_clin  = 2 if clin_result.boundary_principles_applied else 1
     calls_med   = 0 if med_result.source in ("structured", "annotation") else 1
     calls_dx    = 0 if not dx_result.matched_codes else 1
     calls_synth = 0 if synth.synthesis_mode in (
@@ -261,7 +264,8 @@ def run_pipeline(
         confidence_score_clin = synth.confidence_score_clin,
         confidence_score_med  = synth.confidence_score_med,
         confidence_score_dx   = synth.confidence_score_dx,
-        confidence_correction = synth.confidence_correction,
+        confidence_correction           = synth.confidence_correction,
+        boundary_principles_applied     = list(clin_result.boundary_principles_applied),
         latency_ms            = round(latency_ms, 2),
         llm_calls             = llm_calls,
         estimated_cost_usd_proxy = round(llm_calls * _LLM_COST_PER_CALL, 4),

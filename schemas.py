@@ -37,14 +37,14 @@ class MedicationAgentOutput(BaseModel):
 
 
 class ClinTextAgentOutput(BaseModel):
-    """Output schema for ClinTextAgent (neurologist, weight 3)."""
+    """Output schema for ClinTextAgent (neurologist)."""
     symptoms_found: bool
     evidence_list: list[str] = Field(default_factory=list)
     reasoning: str = ""
     assessment: str = ""
     confidence: Literal["high", "medium", "low"] = "low"
     confidence_score: float = 0.0
-    weight: Literal[3] = 3
+    boundary_principles_applied: list[str] = Field(default_factory=list)
 
 
 class SynthesizerOutput(BaseModel):
@@ -99,6 +99,9 @@ class PipelineResult(BaseModel):
     confidence_score_med: float = 0.0
     confidence_score_dx: float = 0.0
     confidence_correction: str | None = None
+
+    # Boundary-aware RAG
+    boundary_principles_applied: list[str] = Field(default_factory=list)
 
     # Observability fields
     latency_ms: float = 0.0

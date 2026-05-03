@@ -77,7 +77,8 @@ EHR Record (full text + ICD codes)
  ┌───────────────┐   ┌──────────────────┐  ┌────────────────┐
  │ ClinTextAgent │   │ MedicationAgent  │  │ DiagnosisAgent │
  │  neurologist  │   │   pharmacist     │  │  coding spec.  │
- │  LLM + RAG    │   │  hybrid (struct  │  │  rule-based +  │
+ │  LLM +        │   │  hybrid (struct  │  │  rule-based +  │
+ │  boundary RAG │   │    + LLM)        │  │  LLM context   │
  │               │   │    + LLM)        │  │  LLM context   │
  └───────┬───────┘   └────────┬─────────┘  └───────┬────────┘
          │   confidence_score  │  confidence_score   │  confidence_score
@@ -104,7 +105,7 @@ EHR Record (full text + ICD codes)
 
 | Agent | Role | Method | Confidence Score Logic |
 |---|---|---|---|
-| **ClinTextAgent** | Current cognitive symptoms | LLM as neurologist; optionally prepends 3 RAG-retrieved similar cases | Evidence count + source location (Assess/Plan/Discharge > HPI/PMH) minus negation penalty |
+| **ClinTextAgent** | Chronic AD/ADRD evidence in full note | LLM as neurologist; boundary-aware RAG triggers a second LLM call when hedging/acute signals detected, injecting 1–2 expert judgment principles derived from error analysis | Confidence = certainty in own conclusion; strong ≥2 → 0.90; hedging-only → 0.35; acute-only → 0.50 |
 | **MedicationAgent** | Active AD prescriptions | Phase 1: structured columns; Phase 2: LLM full-text scan | annotation/structured=0.9 · current text (recognized drug)=0.75 · current text (unrecognized)=0.6 · historical/refused=0.2 · mentioned=0.05 · not found=0.0 |
 | **DiagnosisAgent** | ICD codes — current vs historical | Step 1: rule-based whitelist match (early exit if no match); Step 2: LLM context check | not found=0.0 · historical=0.0 · current+high=0.9 · current+medium=0.6 · current+low=0.3 |
 | **SynthesizerAgent** | Final diagnosis + subtype | Consensus early exit or LLM arbitration with agent scores; deterministic fallback | Post-hoc correction: 3 forced downgrade rules |

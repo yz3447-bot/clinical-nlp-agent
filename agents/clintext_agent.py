@@ -1,7 +1,11 @@
 """
 Clinical Text Agent — primary evidence layer.
-Neurologist reads the FULL clinical note for current AD/ADRD evidence.
-Returns exact quotes, explicit reasoning, and exclusion list.
+Neurologist reads the FULL clinical note for chronic AD/ADRD evidence.
+
+Two-phase execution when a boundary signal is detected:
+  Phase 1: standard LLM call → initial judgment
+  Phase 2: if boundary signal present, retrieve relevant principles from
+           BoundaryKnowledgeBase and re-evaluate with expert guidance injected.
 """
 
 import json
@@ -140,25 +144,33 @@ def _compute_confidence_score(
     return 0.40
 
 
-def _format_rag_context(cases: list[dict]) -> str:
-    """Format retrieved cases into a prompt-ready reference block."""
-    lines = ["Reference cases from knowledge base:"]
-    for i, case in enumerate(cases, 1):
-        if case["label"] == 1:
-            descriptor = f"AD present, subtype: {case['subtype']}"
-        else:
-            descriptor = "No AD"
-        lines.append(f"Case {i} ({descriptor}): {case['text']}")
+def _build_boundary_context(principles: list[dict]) -> str:
+    lines = [
+        "=== BOUNDARY JUDGMENT PRINCIPLES ===",
+        "This case has been flagged as a boundary case.",
+        "",
+    ]
+    for i, p in enumerate(principles, 1):
+        lines += [
+            f"Principle {i}: [{p['boundary_type']}]",
+            f"Clinical features: {p['clinical_features']}",
+            f"Judgment principle: {p['principle']}",
+            f"Key evidence to look for: {p['key_evidence']}",
+            f"Correct conclusion: {p['correct_conclusion']}",
+            f"Common mistake to avoid: {p['common_mistake']}",
+            "",
+        ]
+    lines.append("=== RE-EVALUATE THE CLINICAL NOTE WITH ABOVE PRINCIPLES ===")
     return "\n".join(lines)
 
 
-def run_clintext_agent(row: dict, llm, kb=None) -> ClinTextAgentOutput:
+def run_clintext_agent(row: dict, llm, boundary_kb=None) -> ClinTextAgentOutput:
     """
     Args:
-        row: dict with 'text' key (full clinical note)
-        llm: LangChain LLM instance
-        kb:  optional KnowledgeBase instance; if provided, retrieves 3
-             similar cases and prepends them to the prompt as context
+        row:         dict with 'text' key (full clinical note)
+        llm:         LangChain LLM instance
+        boundary_kb: optional BoundaryKnowledgeBase; triggers a second LLM call
+                     with retrieved principles when a boundary signal is detected
     Returns:
         ClinTextAgentOutput validated instance
     """
@@ -174,18 +186,10 @@ def run_clintext_agent(row: dict, llm, kb=None) -> ClinTextAgentOutput:
             confidence_score=0.0,
         )
 
-    # ── Optionally prepend RAG context ────────────────────────────────────────
     prompt = CLINTEXT_PROMPT.format(text=text)
-    if kb is not None:
-        try:
-            similar_cases = kb.retrieve_similar(text, n_results=3)
-            if similar_cases:
-                rag_block = _format_rag_context(similar_cases)
-                prompt = rag_block + "\n\n" + prompt
-        except Exception as e:
-            logger.warning(f"RAG retrieval failed: {e}")
 
     try:
+        # ── Phase 1: standard LLM call ────────────────────────────────────────
         response = llm.invoke(prompt)
         content  = response.content if hasattr(response, "content") else str(response)
         parsed   = _parse_llm_json(content)
@@ -199,10 +203,61 @@ def run_clintext_agent(row: dict, llm, kb=None) -> ClinTextAgentOutput:
         evidence_raw     = parsed.get("evidence_list", [])
         hedging_detected = bool(parsed.get("hedging_detected", False))
         acute_only       = bool(parsed.get("acute_only", False))
-        reasoning        = str(parsed.get("reasoning", ""))
-        assessment       = str(parsed.get("assessment", ""))
 
-        # Normalize to plain strings for schema storage; keep raw dicts for scoring
+        boundary_principles_applied: list[str] = []
+
+        # ── Phase 2: boundary-aware refinement ────────────────────────────────
+        should_refine = (
+            hedging_detected
+            or acute_only
+            or (found and conf == "low")
+            or (not found and len(evidence_raw) > 0)
+        )
+
+        if should_refine and boundary_kb is not None:
+            features: list[str] = []
+            if hedging_detected:
+                features.append("uncertain language possible suspected dementia")
+            if acute_only:
+                features.append("acute cognitive symptoms only discharge normal")
+            if found and conf == "low":
+                features.append("weak evidence uncertain conclusion")
+            if not found and evidence_raw:
+                features.append("contradiction symptoms not found but evidence present")
+
+            query = " | ".join(features) if features else "boundary case uncertain judgment"
+
+            try:
+                principles = boundary_kb.retrieve(query, n_results=2)
+                if principles:
+                    boundary_principles_applied = [p["boundary_type"] for p in principles]
+                    boundary_context = _build_boundary_context(principles)
+                    refined_prompt   = boundary_context + "\n\n" + prompt
+                    second_response  = llm.invoke(refined_prompt)
+                    second_content   = (
+                        second_response.content
+                        if hasattr(second_response, "content")
+                        else str(second_response)
+                    )
+                    second_parsed = _parse_llm_json(second_content)
+                    if second_parsed:
+                        parsed = second_parsed   # use Phase 2 result
+                        found            = bool(parsed.get("symptoms_found", False))
+                        conf_raw         = str(parsed.get("confidence", "low")).lower().strip()
+                        conf             = conf_raw if conf_raw in ("high", "medium", "low") else "low"
+                        evidence_raw     = parsed.get("evidence_list", [])
+                        hedging_detected = bool(parsed.get("hedging_detected", False))
+                        acute_only       = bool(parsed.get("acute_only", False))
+                        logger.info(
+                            "  [ClinTextAgent] Boundary refinement applied: %s → symptoms_found=%s conf=%s",
+                            boundary_principles_applied, found, conf,
+                        )
+                    else:
+                        logger.warning("  [ClinTextAgent] Phase 2 parse failed — keeping Phase 1 result")
+            except Exception as e:
+                logger.warning("  [ClinTextAgent] Boundary retrieval/refinement failed: %s", e)
+
+        # Normalize evidence to plain strings for schema; keep raw dicts for scoring
         evidence = [
             e["text"] if isinstance(e, dict) else str(e)
             for e in evidence_raw
@@ -214,12 +269,13 @@ def run_clintext_agent(row: dict, llm, kb=None) -> ClinTextAgentOutput:
         return ClinTextAgentOutput(
             symptoms_found=found,
             evidence_list=evidence,
-            reasoning=reasoning,
-            assessment=assessment,
+            reasoning=str(parsed.get("reasoning", "")),
+            assessment=str(parsed.get("assessment", "")),
             confidence=conf,
             confidence_score=_compute_confidence_score(
                 found, evidence_raw, hedging_detected, acute_only
             ),
+            boundary_principles_applied=boundary_principles_applied,
         )
 
     except Exception as e:

@@ -26,8 +26,8 @@ from langchain_google_genai import ChatGoogleGenerativeAI
 
 from logger import get_logger
 from pipeline import run_pipeline, EVIDENCE_COLUMNS
-from rag.knowledge_base import KnowledgeBase
-from rag.seed_data import SEED_CASES
+from rag.boundary_kb import BoundaryKnowledgeBase
+from rag.boundary_cases import BOUNDARY_PRINCIPLES
 from schemas import PipelineResult
 
 logger = get_logger(__name__)
@@ -144,7 +144,7 @@ def append_result(result: dict):
         writer.writerow(result)
 
 
-def process_row(row: dict, llm, kb=None, run_id: str = "") -> dict:
+def process_row(row: dict, llm, boundary_kb=None, run_id: str = "") -> dict:
     """
     Extract fields from a CSV row, run the pipeline, return a CSV-ready dict.
     All agent execution and orchestration logic lives in pipeline.run_pipeline().
@@ -182,7 +182,7 @@ def process_row(row: dict, llm, kb=None, run_id: str = "") -> dict:
         text=text,
         icd_codes=icd_codes,
         llm=llm,
-        kb=kb,
+        boundary_kb=boundary_kb,
         run_id=run_id,
         note_id=note_id,
         subject_id=subject_id,
@@ -244,22 +244,13 @@ def main():
     llm = build_llm()
     logger.info("[LLM] Gemini-2.5-flash initialized.")
 
-    _kb = KnowledgeBase()
-    for case in SEED_CASES:
-        _kb.add_case(
-            note_id=case["note_id"],
-            text=case["text"],
-            label=case["label"],
-            subtype=case["subtype"],
-        )
-    kb_size = _kb.get_stats()
-    logger.info("[RAG] KnowledgeBase initialized with %d seed cases.", kb_size)
-    if kb_size <= len(SEED_CASES):
-        logger.warning(
-            "[RAG] KB contains only %d synthetic seed cases. "
-            "Run `python populate_kb.py` to expand with real training cases for better RAG quality.",
-            kb_size,
-        )
+    boundary_kb = BoundaryKnowledgeBase()
+    added = boundary_kb.populate(BOUNDARY_PRINCIPLES)
+    total_principles = boundary_kb.count()
+    logger.info(
+        "[BoundaryRAG] Initialized with %d principles (%d newly added).",
+        total_principles, added,
+    )
 
     csv_files = resolve_csv_files(Path(args.input))
     logger.info("[Data] Found %d CSV file(s): %s", len(csv_files), [f.name for f in csv_files])
@@ -303,7 +294,7 @@ def main():
                 continue
 
             try:
-                result = process_row(row_dict, llm, kb=_kb, run_id=run_id)
+                result = process_row(row_dict, llm, boundary_kb=boundary_kb, run_id=run_id)
                 append_result(result)
                 processed_ids.add(note_id)
                 total_processed += 1
